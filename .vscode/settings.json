@@ -6,5 +6,11 @@
                 "italic": true
             }
         }
-    }
+    },
+    "cSpell.words": [
+        "blackbox",
+        "celltypes",
+        "Hasher",
+        "whitebox"
+    ]
 }
