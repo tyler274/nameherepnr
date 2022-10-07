@@ -2,7 +2,7 @@ use hashers::oz::DJB2Hasher;
 use ordered_float::NotNan;
 use std::hash::{BuildHasher, BuildHasherDefault};
 use std::hash::{Hash, Hasher};
-use std::ops::Not;
+use std::ptr::NonNull;
 
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Eq, Ord, Hash)]
 pub enum GraphicType {
@@ -15,22 +15,23 @@ pub enum GraphicType {
     LocalArrow, // Located entirely within the cell boundaries, coordinates in the range [0., 1.]
     LocalLine,
 }
+
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Eq, Ord, Hash)]
 pub enum GraphicStyle {
-    STYLE_GRID,
-    STYLE_FRAME,    // Static "frame". Contrast between STYLE_INACTIVE and STYLE_ACTIVE
-    STYLE_HIDDEN,   // Only display when object is selected or highlighted
-    STYLE_INACTIVE, // Render using low-contrast color
-    STYLE_ACTIVE,   // Render using high-contast color
+    Grid,
+    Frame,    // Static "frame". Contrast between STYLE_INACTIVE and STYLE_ACTIVE
+    Hidden,   // Only display when object is selected or highlighted
+    Inactive, // Render using low-contrast color
+    Active,   // Render using high-contast color
 
     // UI highlight groups
-    STYLE_HIGHLIGHTED0,
-    STYLE_HIGHLIGHTED1,
-    STYLE_HIGHLIGHTED2,
-    STYLE_HIGHLIGHTED3,
-    STYLE_HIGHLIGHTED4,
-    STYLE_HIGHLIGHTED5,
-    STYLE_HIGHLIGHTED6,
+    Highlighted0,
+    Highlighted1,
+    Highlighted2,
+    Highlighted3,
+    Highlighted4,
+    Highlighted5,
+    Highlighted6,
     Highlighted7,
 
     Selected,
@@ -57,10 +58,11 @@ pub struct GraphicElement {
 impl GraphicElement {
     pub const fn default() -> Self {
         // This unsafe block just lets us const initialize the defaults.
+        // I hope 0.0 is a not NaN.
         unsafe {
             Self {
                 graphic_type: GraphicType::None,
-                style: GraphicStyle::STYLE_FRAME,
+                style: GraphicStyle::Frame,
                 x1: NotNan::new_unchecked(0.0),
                 y1: NotNan::new_unchecked(0.0),
                 x2: NotNan::new_unchecked(0.0),
@@ -68,6 +70,26 @@ impl GraphicElement {
                 z: NotNan::new_unchecked(0.0),
                 text: String::new(),
             }
+        }
+    }
+    pub const fn new(
+        graphic_type: GraphicType,
+        style: GraphicStyle,
+        x1: NotNan<f32>,
+        y1: NotNan<f32>,
+        x2: NotNan<f32>,
+        y2: NotNan<f32>,
+        z: NotNan<f32>,
+    ) -> Self {
+        Self {
+            graphic_type,
+            style,
+            x1,
+            x2,
+            y1,
+            y2,
+            z,
+            text: String::new(),
         }
     }
 }
@@ -152,11 +174,11 @@ impl ArcBounds {
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub enum PlaceStrength {
-    STRENGTH_NONE = 0,
-    STRENGTH_WEAK = 1,
-    STRENGTH_STRONG = 2,
-    STRENGTH_PLACER = 3,
-    STRENGTH_FIXED = 4,
-    STRENGTH_LOCKED = 5,
-    STRENGTH_USER = 6,
+    None = 0,
+    Weak = 1,
+    Strong = 2,
+    Placer = 3,
+    Fixed = 4,
+    Locked = 5,
+    User = 6,
 }
