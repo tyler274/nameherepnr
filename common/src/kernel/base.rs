@@ -2,7 +2,6 @@ use hashers::oz::DJB2Hasher;
 use ordered_float::NotNan;
 use std::hash::{BuildHasher, BuildHasherDefault};
 use std::hash::{Hash, Hasher};
-use std::ptr::NonNull;
 
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Eq, Ord, Hash)]
 pub enum GraphicType {
@@ -100,6 +99,7 @@ pub struct Loc {
     y: i32,
     z: i32,
 }
+
 impl Loc {
     pub const fn default() -> Self {
         Self {
