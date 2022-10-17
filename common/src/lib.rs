@@ -1,5 +1,7 @@
 //#![feature(const_mut_refs)]
-//#![feature(const_for)]
+#![feature(const_option)]
+#![feature(const_trait_impl)]
+#![feature(const_cmp)]
 pub mod kernel;
 
 pub fn add(left: usize, right: usize) -> usize {

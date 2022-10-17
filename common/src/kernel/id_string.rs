@@ -31,8 +31,9 @@ impl IdString {
         x
     }
 
-    pub fn to_string(&self, cts: &BaseCtx) -> String {
-        ctx.idstring_idx_to_str.at(self.index)
+    pub fn to_string(&self, ctx: &BaseCtx) -> String {
+        todo!()
+//        ctx.idstring_idx_to_str.at(self.index)
     }
 
     pub fn empty(&self) -> bool {

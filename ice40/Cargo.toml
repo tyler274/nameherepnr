@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 log = "0.4"
-#hashers = "1.0.1"
+hashers = "1.0.1"
 #ordered-float = "3.2.0"
 thiserror = "1.0"
 #bitvec = "1.0.1"

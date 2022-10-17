@@ -3,5 +3,6 @@
 members = [
     "frontend",
     "common",
+    "ice40",
 ]
 
