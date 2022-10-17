@@ -1,22 +1,34 @@
 use crate::kernel::base_context::BaseCtx;
 use std::fmt;
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Ord, Eq)]
 pub struct IdString {
-    index: usize,
+    index: u64,
+}
+
+impl const PartialEq for IdString {
+    fn eq(&self, other: &Self) -> bool {
+        self.index == other.index
+    }
+}
+
+impl const PartialOrd for IdString {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.index.cmp(&other.index))
+    }
 }
 
 impl IdString {
     pub fn initialize_arch(ctx: &BaseCtx) {
         todo!()
     }
-    pub fn initialize_add(ctx: &BaseCtx, s: &str, idx: usize) {
+    pub fn initialize_add(ctx: &BaseCtx, s: &str, idx: u64) {
         todo!()
     }
     pub const fn new() -> Self {
         Self { index: 0 }
     }
-    pub const fn with_index(index: usize) -> Self {
+    pub const fn with_index(index: u64) -> Self {
         let mut x = Self::new();
         x.index = index;
         x
@@ -39,7 +51,7 @@ impl IdString {
     pub fn empty(&self) -> bool {
         self.index == 0
     }
-    pub const fn hash(&self) -> usize {
+    pub const fn hash(&self) -> u64 {
         self.index
     }
 
@@ -64,5 +76,11 @@ impl IdString {
             }
         }
         result
+    }
+}
+
+impl Default for IdString {
+    fn default() -> Self {
+        Self::new()
     }
 }

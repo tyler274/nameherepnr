@@ -108,6 +108,9 @@ impl Loc {
             z: -1,
         }
     }
+    pub const fn origin() -> Self {
+        Self { x: 0, y: 0, z: 0 }
+    }
     pub const fn new(x: i32, y: i32, z: i32) -> Self {
         Self { x, y, z }
     }
@@ -172,7 +175,7 @@ impl ArcBounds {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
+#[derive(Clone, Copy, Eq, PartialOrd, Ord, Debug, Hash)]
 pub enum PlaceStrength {
     None = 0,
     Weak = 1,
@@ -181,4 +184,16 @@ pub enum PlaceStrength {
     Fixed = 4,
     Locked = 5,
     User = 6,
+}
+
+impl const PartialEq for PlaceStrength {
+    fn eq(&self, other: &Self) -> bool {
+        *self as usize == *other as usize
+    }
+}
+
+impl PlaceStrength {
+    pub const fn new() -> Self {
+        Self::None
+    }
 }
