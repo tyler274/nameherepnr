@@ -1,6 +1,8 @@
 use hashers::oz::DJB2Hasher;
 use std::hash::{BuildHasher, BuildHasherDefault};
 use std::hash::{Hash, Hasher};
+use common::kernel::id_string::IdString;
+use common::kernel::base_clusterinfo::BaseClusterInfo;
 
 pub type Delay = usize;
 
@@ -248,4 +250,45 @@ pub struct ArchNetInfo {
 
 pub struct NetInfo;
 
-pub struct ArchCellInfo {}
+pub struct LcInfo {
+    dffEnable: bool,
+    carryEnable: bool,
+    negClk: bool,
+    inputCount: i32,
+    lutInputMask: u32,
+    clk: Box<NetInfo>,
+    cen: Box<NetInfo>,
+    sr:  Box<NetInfo>
+}
+
+pub struct IoInfo {
+    lvds: bool,
+    global: bool,
+    negtrig: bool,
+    pintype: i32,
+    // TODO: clk packing checks...
+}
+
+pub struct GbInfo {
+    for_pad_in: bool
+}
+
+pub struct LedInfo {
+    led_cur_connected: bool
+}
+
+pub enum CellEnum {
+    Lc(LcInfo),
+    Io(IoInfo),
+    Gb(GbInfo),
+    Led( LedInfo),
+}
+
+pub struct ArchCellInfo {
+    base_cluster_info: BaseClusterInfo,
+    cell: CellEnum
+}
+
+
+pub type BelBucketId = IdString;
+pub type ClusterId = IdString;
