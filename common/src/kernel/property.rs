@@ -80,35 +80,12 @@ impl State {
     }
 }
 
-//impl Display for State<i64> {
-//    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//        write!(
-//            f,
-//            "{}",
-//            match self {
-//                State::S0(_) => '0',
-//                State::S1(_) => '1',
-//                State::Sx(_) => 'x',
-//                State::Sz(_) => 'z',
-//            }
-//        )
-//    }
-//}
-
 #[derive(Clone, Debug, PartialOrd, PartialEq, Eq, Ord, Hash)]
 pub enum Property {
     Str(State, String),
     Int(State, i64, String),
 }
-// pub struct Property {
-//     is_string: bool,
-//     // The string literal (for string values), or a string of [01xz] (for numeric values)
-//     str: String,
-//     // The lower 64 bits (for numeric values), unused for string values
-//     intval: i64,
-// }
 
-// int64_t as_int64() const
 impl TryFrom<Property> for i64 {
     type Error = &'static str;
 
@@ -119,23 +96,6 @@ impl TryFrom<Property> for i64 {
         }
     }
 }
-
-//impl TryFrom<Property> for Vec<bool> {
-//    type Error = &'static str;
-//
-//    fn try_from(value: Property) -> Result<Self, Self::Error> {
-//        match value {
-//            Property::Int(_, intval , strval) => {
-//                Ok({
-//
-//                })
-//            },
-//            Property::Str(_, _) => {
-//                Err("Cannot convert Strong Property to a")
-//            }
-//        }
-//    }
-//}
 
 impl TryFrom<Property> for BitVec {
     type Error = &'static str;
@@ -247,6 +207,7 @@ impl Property {
             Property::Int(_, _, strval) => strval.len(),
         }
     }
+    
     pub fn update_intval(&mut self) {
         match self {
             Self::Str(state, strval) => {
@@ -318,9 +279,17 @@ impl Property {
                 && c != State::Sx.to_char()
                 && c != State::Sz.to_char()
         });
-        todo!()
-        match cursor {
-            None => {},
+        if cursor == None {
+
+        } else if s.find(|c: char| {
+            c != ' '
+        }) == None {
+            if let Property::Int(state, intval ,strval ) = &mut p {
+                *strval = s.chars().rev().collect()
+            }
+            p.update_intval()
+        } else {
+            p = Self::with_str(s);
         }
 
         p
