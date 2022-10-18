@@ -5,6 +5,8 @@
 #![feature(const_fn_floating_point_arithmetic)]
 #![feature(const_convert)]
 #![feature(const_box)]
+#![feature(trait_alias)]
+
 pub mod kernel;
 pub mod place;
 pub mod route;

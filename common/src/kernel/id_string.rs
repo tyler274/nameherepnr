@@ -84,3 +84,13 @@ impl Default for IdString {
         Self::new()
     }
 }
+
+/// A wrapper around the tuple so I can implement const traits on it.
+#[derive(Debug, Copy, Clone, Eq, Hash)]
+pub struct IdPair(IdString, IdString);
+
+impl const PartialEq for IdPair{
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1 == other.1
+    }
+}

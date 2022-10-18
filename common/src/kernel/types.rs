@@ -3,16 +3,22 @@
 /// either put it in it's own header, or in nextpnr_base_types.h.
 // TODO: Need to figure out the cargo feature based method to
 // import the relevant arch definitions.
-use crate::ice40::arch_defs::{ArchNetInfo, BelId, DecalId, Delay, PipId, WireId};
+use crate::ice40::arch_defs::{
+    ArchCellInfo, ArchNetInfo, BelId, ClusterId, DecalId, Delay, PipId, WireId,
+};
 use crate::kernel::base_types::{Loc, PlaceStrength};
-use crate::kernel::id_string::IdString;
+use crate::kernel::delay::{DelayPair, DelayQuad};
+use crate::kernel::id_string::{IdPair, IdString};
 use crate::kernel::property::Property;
 use ordered_float::NotNan;
 use std::collections::hash_map::HashMap;
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 use std::ops;
 use std::ops::Deref;
 use typed_index_collections::TiVec;
+
+pub trait CellTrait = Debug + PseudoCell + PartialEq + Clone;
 
 #[derive(Debug, Copy, Clone, PartialOrd)]
 pub struct DecalXY {
@@ -99,14 +105,14 @@ impl const PartialEq for PipMap {
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq)]
-pub struct PortRef {
-    cell: Option<Box<CellInfo>>,
+#[derive(Debug, Clone, Eq)]
+pub struct PortRef<CellType: CellTrait> {
+    cell: Option<Box<CellInfo<CellType>>>,
     port: IdString,
     budget: Delay,
 }
 
-impl const PartialEq for PortRef {
+impl<CellType: CellTrait> const PartialEq for PortRef<CellType> {
     fn eq(&self, other: &Self) -> bool {
         self.port == other.port
             && self.budget == other.budget
@@ -119,7 +125,7 @@ impl const PartialEq for PortRef {
     }
 }
 
-impl PortRef {
+impl<T: CellTrait> PortRef<T> {
     pub const fn new() -> Self {
         Self {
             cell: None,
@@ -129,199 +135,21 @@ impl PortRef {
     }
 }
 
-impl Default for PortRef {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// minimum and maximum delay
-#[derive(Debug, Copy, Clone, Eq, Hash)]
-pub struct DelayPair {
-    min_delay: Delay,
-    max_delay: Delay,
-}
-
-impl DelayPair {
-    pub const fn new() -> Self {
-        Self {
-            min_delay: Delay::new(),
-            max_delay: Delay::new(),
-        }
-    }
-    pub const fn with_delay(delay: Delay) -> Self {
-        Self {
-            min_delay: delay,
-            max_delay: delay,
-        }
-    }
-    pub const fn with_min_max(min_delay: Delay, max_delay: Delay) -> Self {
-        Self {
-            min_delay,
-            max_delay,
-        }
-    }
-
-    pub const fn min_delay(&self) -> Delay {
-        self.min_delay
-    }
-
-    pub const fn max_delay(&self) -> Delay {
-        self.max_delay
-    }
-}
-
-impl Default for DelayPair {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl const ops::Add<DelayPair> for DelayPair {
-    type Output = DelayPair;
-
-    fn add(self, rhs: DelayPair) -> Self::Output {
-        DelayPair {
-            min_delay: self.min_delay + rhs.min_delay,
-            max_delay: self.max_delay + rhs.max_delay,
-        }
-    }
-}
-
-impl const ops::Sub<DelayPair> for DelayPair {
-    type Output = DelayPair;
-
-    fn sub(self, rhs: DelayPair) -> Self::Output {
-        DelayPair {
-            min_delay: self.min_delay - rhs.min_delay,
-            max_delay: self.max_delay - rhs.max_delay,
-        }
-    }
-}
-
-impl const PartialEq for DelayPair {
-    fn eq(&self, other: &Self) -> bool {
-        self.min_delay == other.min_delay && self.max_delay == other.max_delay
-    }
-}
-
-/// four-quadrant, min and max rise and fall delay
-#[derive(Debug, Copy, Clone, Hash, Eq)]
-pub struct DelayQuad {
-    rise: DelayPair,
-    fall: DelayPair,
-}
-
-impl const PartialEq for DelayQuad {
-    fn eq(&self, other: &Self) -> bool {
-        self.rise == other.rise && self.fall == other.fall
-    }
-}
-
-impl DelayQuad {
-    pub const fn new() -> Self {
-        Self {
-            rise: DelayPair::new(),
-            fall: DelayPair::new(),
-        }
-    }
-
-    pub const fn with_delay(delay: Delay) -> Self {
-        Self {
-            rise: DelayPair::with_delay(delay),
-            fall: DelayPair::with_delay(delay),
-        }
-    }
-
-    pub const fn with_min_max(min_delay: Delay, max_delay: Delay) -> Self {
-        Self {
-            rise: DelayPair::with_min_max(min_delay, max_delay),
-            fall: DelayPair::with_min_max(min_delay, max_delay),
-        }
-    }
-
-    pub const fn with_rise_fall(rise: DelayPair, fall: DelayPair) -> Self {
-        Self { rise, fall }
-    }
-
-    pub const fn with_rise_fall_min_max(
-        min_rise: Delay,
-        max_rise: Delay,
-        min_fall: Delay,
-        max_fall: Delay,
-    ) -> Self {
-        Self {
-            rise: DelayPair::with_min_max(min_rise, max_rise),
-            fall: DelayPair::with_min_max(min_fall, max_fall),
-        }
-    }
-
-    pub const fn min_rise_delay(&self) -> Delay {
-        self.rise.min_delay()
-    }
-
-    pub const fn max_rise_delay(&self) -> Delay {
-        self.rise.max_delay()
-    }
-
-    pub const fn min_fall_felay(&self) -> Delay {
-        self.fall.min_delay()
-    }
-
-    pub const fn max_fall_delay(&self) -> Delay {
-        self.fall.max_delay()
-    }
-
-    pub const fn min_delay(&self) -> Delay {
-        std::cmp::min(self.rise.min_delay(), self.fall.min_delay())
-    }
-
-    pub const fn max_delay(&self) -> Delay {
-        std::cmp::max(self.rise.max_delay(), self.fall.max_delay())
-    }
-
-    pub const fn delay_pair(&self) -> DelayPair {
-        DelayPair::with_min_max(self.min_delay(), self.max_delay())
-    }
-}
-
-impl const ops::Add<DelayQuad> for DelayQuad {
-    type Output = DelayQuad;
-
-    fn add(self, rhs: DelayQuad) -> Self::Output {
-        DelayQuad {
-            rise: self.rise + rhs.rise,
-            fall: self.fall + rhs.fall,
-        }
-    }
-}
-
-impl const ops::Sub<DelayQuad> for DelayQuad {
-    type Output = DelayQuad;
-
-    fn sub(self, rhs: DelayQuad) -> Self::Output {
-        DelayQuad {
-            rise: self.rise - rhs.rise,
-            fall: self.fall - rhs.fall,
-        }
-    }
-}
-
-impl const Default for DelayQuad {
+impl<T: CellTrait> Default for PortRef<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct NetInfo {
+pub struct NetInfo<CellType: CellTrait> {
     arch_net_info: ArchNetInfo,
     name: IdString,
     hierarchy_path: IdString,
     udata: i32,
 
-    driver: PortRef,
-    users: TiVec<usize, PortRef>,
+    driver: PortRef<CellType>,
+    users: TiVec<usize, PortRef<CellType>>,
     attrs: BTreeMap<IdString, Property>,
 
     // wire -> uphill_pip
@@ -344,7 +172,7 @@ pub struct NetInfo {
 //    }
 //}
 
-impl NetInfo {
+impl<CellType: CellTrait> NetInfo<CellType> {
     pub fn new() -> Self {
         Self {
             arch_net_info: ArchNetInfo::new(),
@@ -368,7 +196,7 @@ impl NetInfo {
     }
 }
 
-impl Default for NetInfo {
+impl<T: CellTrait> Default for NetInfo<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -388,11 +216,30 @@ impl const PartialEq for PortType {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct PortInfo {
+pub struct PortInfo<CellType: CellTrait> {
     name: IdString,
-    net: Box<NetInfo>,
+    net: Box<NetInfo<CellType>>,
     port_type: PortType,
-    user_index: TiVec<usize, PortRef>,
+    user_index: TiVec<usize, PortRef<CellType>>,
+}
+
+impl<T: CellTrait> PortInfo<T> {
+    pub fn new() -> Self {
+        Self {
+            name: IdString::new(),
+            net: Box::new(NetInfo::new()),
+            port_type: PortType::In,
+            user_index: TiVec::new(),
+        }
+    }
+    pub fn update_name(&mut self, name: IdString) -> &mut Self {
+        self.name = name;
+        self
+    }
+    pub fn update_port(&mut self, port_type: PortType) -> &mut Self {
+        self.port_type = port_type;
+        self
+    }
 }
 
 //impl const PartialEq for PortInfo {
@@ -468,7 +315,6 @@ impl TimingClockingInfo {
         }
     }
 }
-
 pub trait PseudoCell {
     fn get_location(&self) -> Loc {
         Loc::origin()
@@ -489,12 +335,15 @@ pub trait PseudoCell {
 
 pub struct RegionPlug {
     port_wires: BTreeMap<IdString, WireId>,
-    loc: Loc
+    loc: Loc,
 }
 
 impl RegionPlug {
     pub const fn new(loc: Loc) -> Self {
-        Self { port_wires: BTreeMap::new(), loc }
+        Self {
+            port_wires: BTreeMap::new(),
+            loc,
+        }
     }
 }
 
@@ -525,23 +374,328 @@ impl PseudoCell for RegionPlug {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq)]
-pub struct CellInfo;
+#[derive(Debug, Clone, Eq)]
+pub struct CellInfo<CellType: CellTrait> {
+    arch_cell_info: ArchCellInfo,
+    context: Option<Box<Context>>,
 
-impl const PartialEq for CellInfo {
+    name: IdString,
+    cell_type: IdString,
+    hierarchy_path: IdString,
+    udata: i32,
+
+    ports: BTreeMap<IdString, PortInfo<CellType>>,
+    attributes: BTreeMap<IdString, Property>,
+    parameters: BTreeMap<IdString, Property>,
+
+    bel: BelId,
+    bel_strength: PlaceStrength,
+
+    // cell is part of a cluster if != ClusterId
+    cluster: ClusterId,
+
+    region: Option<Box<Region>>,
+
+    pseudo_cell: Option<Box<CellType>>,
+}
+
+impl<T: CellTrait> const PartialEq for CellInfo<T> {
     fn eq(&self, other: &Self) -> bool {
         self == other
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
-pub struct ClockConstraint;
+impl<T: CellTrait> CellInfo<T> {
+    pub fn add_input(&mut self, name: IdString) {
+        self.ports.insert(
+            name,
+            PortInfo {
+                name,
+                port_type: PortType::In,
+                net: self.ports[&name].net.clone(),
+                user_index: self.ports[&name].user_index.clone(),
+            },
+        );
+    }
+    pub fn add_output(&mut self, name: IdString) {
+        self.ports.insert(
+            name,
+            PortInfo {
+                name,
+                port_type: PortType::Out,
+                net: self.ports[&name].net.clone(),
+                user_index: self.ports[&name].user_index.clone(),
+            },
+        );
+    }
+    pub fn add_in_out(&mut self, name: IdString) {
+        self.ports.insert(
+            name,
+            PortInfo {
+                name,
+                port_type: PortType::InOut,
+                net: self.ports[&name].net.clone(),
+                user_index: self.ports[&name].user_index.clone(),
+            },
+        );
+    }
+    pub fn set_param(&mut self, name: IdString, value: Property) {
+        self.parameters.insert(name, value);
+    }
+    pub fn unset_param(&mut self, name: IdString) {
+        self.parameters.remove(&name);
+    }
+    pub fn set_attribute(&mut self, name: IdString, value: Property) {
+        self.attributes.insert(name, value);
+    }
+    pub fn unset_attribute(&mut self, name: IdString) {
+        self.attributes.remove(&name);
+    }
 
-impl ClockConstraint {
-    pub const fn new() -> Self {
-        Self {}
+    // check whether a bel complies with the cell's region constraint
+    pub fn test_region(&self, bel: BelId) -> bool {
+        if let Some(region) = &self.region {
+            region.constr_bels || region.bels.contains_key(&bel)
+        } else {
+            true
+        }
+//        self.region.is_none() || self.region.unwrap().constr_bels || self.region.unwrap().count(bel)
+    }
+
+    pub const fn is_pseudo(&self, bel: BelId) -> bool {
+        todo!()
+    }
+
+    pub const fn get_location(&self, bel: BelId) -> bool {
+        todo!()
+    }
+
+    pub fn get_port(&self, name: IdString) -> &NetInfo<T> {
+        let found = &self.ports[&name];
+        //        if (found == self.ports.last_entry().) {
+        //
+        //        }
+        todo!()
+    }
+
+    pub fn connect_port(&mut self, port_name: IdString, net: &NetInfo<T>) {
+//        let port = self.ports[&port]
+        todo!()
+    }
+
+    pub fn disconnect_port(&mut self, port: IdString) {
+        todo!()
+    }
+
+    pub fn connect_ports(&mut self, port: IdString, other: &CellInfo<T>, other_port: IdString) {
+        todo!()
+    }
+
+    pub fn move_port_to(&mut self, port: IdString, other: &CellInfo<T>, other_port: IdString) {
+        todo!()
+    }
+
+    pub fn rename_port(&mut self, old_name: IdString, new_name: IdString) {
+        todo!()
+    }
+
+    pub fn move_port_bus_to(
+        &mut self,
+        old_name: IdString,
+        old_offset: i32,
+        old_brackets: bool,
+        new_cell: &CellInfo<T>,
+        new_name: IdString,
+        new_offset: i32,
+        new_brackets: bool,
+        width: i32,
+    ) {
+        todo!()
+    }
+
+    pub fn copy_port_(&self, port: IdString, other: &CellInfo<T>, other_port: IdString) {
+        todo!()
+    }
+
+    pub fn copy_port_bus_to(
+        &self,
+        old_name: IdString,
+        old_offset: i32,
+        old_brackets: bool,
+        new_cell: &CellInfo<T>,
+        new_name: IdString,
+        new_offset: i32,
+        new_brackets: bool,
+        width: i32,
+    ) {
+        todo!()
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub struct ClockConstraint {
+    high: DelayPair,
+    low: DelayPair,
+    period: DelayPair,
+}
+
+impl ClockConstraint {
+    pub const fn new() -> Self {
+        Self {
+            high: DelayPair::new(),
+            low: DelayPair::new(),
+            period: DelayPair::new(),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ClockFmax {
+    achieved: NotNan<f32>,
+    constraint: NotNan<f32>,
+}
+
+#[derive(Debug, Copy, Clone, Eq, Hash)]
+pub struct ClockEvent {
+    clock: IdString,
+    edge: ClockEdge,
+}
+
+impl const PartialEq for ClockEvent {
+    fn eq(&self, other: &Self) -> bool {
+        self.clock == other.clock && self.edge == other.edge
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, Hash)]
+pub struct ClockPair {
+    start: ClockEvent,
+    end: ClockEvent,
+}
+
+impl const PartialEq for ClockPair {
+    fn eq(&self, other: &Self) -> bool {
+        self.start == self.end && other.start == other.end
+    }
+}
+
+/// Segment type
+#[derive(Debug, Copy, Clone, Eq)]
+pub enum SegmentType {
+    ClkToQ,  // Clock-to-Q delay
+    Source,  // Delayless source
+    Logic,   // Combinational logic delay
+    Routing, // Routing delay
+    Setup,   // Setup time in sink
+}
+
+impl const PartialEq for SegmentType {
+    fn eq(&self, other: &Self) -> bool {
+        *self as usize == *other as usize
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq)]
+pub struct Segment {
+    // Type
+    segment_type: SegmentType,
+    // Net name (routing only)
+    net: IdString,
+    // From cell.port
+    from: IdPair,
+    // To cell.port
+    to: IdPair,
+    // Segment delay
+    delay: Delay,
+    // Segment budget (routing only)
+    budget: Delay,
+}
+
+impl const PartialEq for Segment {
+    fn eq(&self, other: &Self) -> bool {
+        self.segment_type == other.segment_type
+            && self.net == other.net
+            && self.from == other.from
+            && self.to == other.to
+            && self.delay == other.delay
+            && self.budget == other.budget
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct CriticalPath {
+    // Clock pair
+    clock_pair: ClockPair,
+    // Total path delay
+    delay: Delay,
+    // Period (max allowed delay)
+    period: Delay,
+    // Individual path segments
+    segments: Vec<Segment>,
+}
+
+/// Holds timing information of a single source to sink path of a net
+#[derive(Debug, Copy, Clone, Hash, Eq)]
+pub struct NetSinkTiming {
+    // Clock event pair
+    clock_pair: ClockPair,
+    // Cell and port (the sink)
+    cell_port: IdPair,
+    // Delay
+    delay: Delay,
+    // Delay budget
+    budget: Delay,
+}
+
+impl const PartialEq for NetSinkTiming {
+    fn eq(&self, other: &Self) -> bool {
+        self.clock_pair == other.clock_pair
+            && self.cell_port == other.cell_port
+            && self.delay == other.delay
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct TimingResult {
+    // Achieved and target Fmax for all clock domains
+    clock_fmax: BTreeMap<IdString, ClockFmax>,
+    // Single domain critical paths
+    clock_paths: BTreeMap<IdString, CriticalPath>,
+    // Cross-domain critical paths
+    xclock_paths: Vec<CriticalPath>,
+
+    // Detailed net timing data
+    detailed_net_timings: BTreeMap<IdString, Vec<NetSinkTiming>>,
+}
+
+/// Represents the contents of a non-leaf cell in a design
+/// with hierarchy
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct HierarchicalPort {
+    name: IdString,
+    dir: PortType,
+    nets: Vec<IdString>,
+    offset: i32,
+    up_to: bool,
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct HierarchicalCell {
+    name: IdString,
+    cell_type: IdString,
+    parent: IdString,
+    fullpath: IdString,
+    // Name inside cell instance -> global name
+    leaf_cells: BTreeMap<IdString, IdString>,
+    nets: BTreeMap<IdString, IdString>,
+    // Global name -> name inside cell instance
+    leaf_cells_by_global_name: BTreeMap<IdString, IdString>,
+    nets_by_global_name: BTreeMap<IdString, IdString>,
+    // Cell port to net
+    ports: BTreeMap<IdString, HierarchicalPort>,
+    // Name inside cell instance -> global name
+    hierachical_cells: BTreeMap<IdString, IdString>,
+}
+
+#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Context {}
