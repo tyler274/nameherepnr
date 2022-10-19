@@ -13,5 +13,5 @@ thiserror = "1.0"
 bitvec = "1.0.1"
 typed-index-collections = "3.1.0"
 indextree = "4.5.0"
-# TODO: Use a thunderdome for various boxed values, once const construction is merged.
-# thunderdome = "0.5.1"
+thunderdome = "0.6.0"
+num-traits = "0.2.15"

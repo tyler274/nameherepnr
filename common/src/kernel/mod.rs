@@ -9,3 +9,6 @@ pub mod id_string;
 pub mod property;
 pub mod types;
 pub mod delay;
+
+#[cfg(test)]
+mod tests;

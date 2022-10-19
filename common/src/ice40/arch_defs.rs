@@ -5,61 +5,6 @@ use std::hash::{BuildHasher, BuildHasherDefault};
 use std::hash::{Hash, Hasher};
 use std::ops;
 
-#[derive(Debug, Copy, Clone, Eq, Hash)]
-pub struct Delay(u64);
-
-impl const Ord for Delay {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.cmp(&other.0)
-    }
-}
-
-impl const From<u64> for Delay {
-    fn from(value: u64) -> Self {
-        Self(value)
-    }
-}
-
-impl Delay {
-    pub const fn new() -> Self {
-        Self(0)
-    }
-}
-
-impl const ops::Add<Delay> for Delay {
-    type Output = Delay;
-
-    fn add(self, rhs: Delay) -> Self::Output {
-        Delay(self.0 + rhs.0)
-    }
-}
-
-impl const ops::Sub<Delay> for Delay {
-    type Output = Delay;
-
-    fn sub(self, rhs: Delay) -> Self::Output {
-        Delay(self.0 - rhs.0)
-    }
-}
-
-impl const PartialEq for Delay {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl const PartialOrd for Delay {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.0.cmp(&other.0))
-    }
-}
-
-impl Default for Delay {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[derive(Debug, Copy, Clone, Hash, Ord, Eq)]
 pub struct BelId {
     index: Option<u64>,
