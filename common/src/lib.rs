@@ -5,6 +5,8 @@
 #![feature(const_fn_floating_point_arithmetic)]
 #![feature(const_convert)]
 #![feature(const_box)]
+#![feature(const_weak_new)]
+#![feature(const_borrow)]
 #![feature(trait_alias)]
 
 pub mod ice40;

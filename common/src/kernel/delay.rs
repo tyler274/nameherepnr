@@ -1,7 +1,3 @@
-//use crate::kernel::base_clusterinfo::BaseClusterInfo;
-//use crate::kernel::id_string::IdString;
-//use hashers::oz::DJB2Hasher;
-//use std::hash::{BuildHasher, BuildHasherDefault};
 use std::cmp::{Ord, Ordering};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -41,6 +37,12 @@ where
     {
         Delay(DelayType::new())
     }
+    pub const fn with_delay(value: DelayType) -> Self
+    where
+        DelayType: DelayTrait + ~const DelayTrait,
+    {
+        Delay(value)
+    }
 }
 
 impl<DelayType: DelayTrait + ~const Ord> const Ord for Delay<DelayType> {
@@ -57,6 +59,18 @@ impl const DelayTrait for u64 {
 
 impl const From<u64> for Delay<u64> {
     fn from(value: u64) -> Self {
+        Self(value)
+    }
+}
+
+impl const DelayTrait for i32 {
+    fn new() -> Self {
+        0
+    }
+}
+
+impl const From<i32> for Delay<i32> {
+    fn from(value: i32) -> Self {
         Self(value)
     }
 }

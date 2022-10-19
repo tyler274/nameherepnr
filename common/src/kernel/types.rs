@@ -15,11 +15,16 @@ use std::cmp::PartialEq;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::ops::Deref;
+use thiserror::Error;
 use typed_index_collections::TiVec;
 
 // Unstable trait bounds aliasing, to reduce code duplication.
-pub trait CellTrait<DelayType: DelayTrait> = Debug + PseudoCell<DelayType> + PartialEq + Clone;
+#[const_trait]
+pub trait CellTrait<DelayType: DelayTrait>
+where
+    Self: Debug + PseudoCell<DelayType> + PartialEq + Clone,
+{
+}
 
 #[derive(Debug, Copy, Clone, PartialOrd)]
 pub struct DecalXY {
@@ -120,16 +125,16 @@ impl const PartialEq for PipMap {
     }
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct PortRef<DelayType: DelayTrait, CellType: CellTrait<DelayType>> {
-    cell: Option<Box<CellInfo<DelayType, CellType>>>,
+    cell: Option<std::rc::Weak<CellInfo<DelayType, CellType>>>,
     port: IdString,
     budget: Delay<DelayType>,
 }
 
-impl<DelayType, CellType> const PartialEq for PortRef<DelayType, CellType>
+impl<DelayType, CellType> PartialEq for PortRef<DelayType, CellType>
 where
-    DelayType: DelayTrait + ~const PartialEq,
+    DelayType: DelayTrait,
     CellType: CellTrait<DelayType>,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -139,7 +144,7 @@ where
                 (None, None) => true,
                 (None, Some(_)) => false,
                 (Some(_), None) => false,
-                (Some(s), Some(o)) => s.deref() == o.deref(),
+                (Some(s), Some(o)) => s.ptr_eq(o),
             }
     }
 }
@@ -169,7 +174,7 @@ impl<DelayType: DelayTrait, CellType: CellTrait<DelayType>> Default
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NetInfo<DelayType: DelayTrait, CellType: CellTrait<DelayType>> {
     arch_net_info: ArchNetInfo,
     name: IdString,
@@ -189,16 +194,6 @@ pub struct NetInfo<DelayType: DelayTrait, CellType: CellTrait<DelayType>> {
 
     region: Option<Box<Region>>,
 }
-
-//impl const PartialEq for NetInfo {
-//    fn eq(&self, other: &Self) -> bool {
-//        self.arch_net_info == other.arch_net_info
-//            && self.name == other.name
-//            && self.hierarchy_path == other.hierarchy_path
-//            && self.udata == other.udata
-//            && self.driver == other.driver && self.users == other.users
-//    }
-//}
 
 impl<DelayType, CellType> NetInfo<DelayType, CellType>
 where
@@ -257,7 +252,7 @@ impl const PartialEq for PortType {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PortInfo<DelayType, CellType>
 where
     DelayType: DelayTrait,
@@ -302,12 +297,6 @@ impl<DelayType: DelayTrait, CellType: CellTrait<DelayType>> Default
         Self::new()
     }
 }
-
-//impl const PartialEq for PortInfo {
-//    fn eq(&self, other: &Self) -> bool {
-//        todo!()
-//    }
-//}
 
 #[derive(Debug, Copy, Clone, Eq)]
 pub enum TimingPortClass {
@@ -410,7 +399,12 @@ where
         }
     }
 }
-pub trait PseudoCell<DelayType: DelayTrait> {
+
+#[const_trait]
+pub trait PseudoCell<DelayType>
+where
+    DelayType: DelayTrait,
+{
     fn get_location(&self) -> Loc {
         Loc::origin()
     }
@@ -428,11 +422,10 @@ pub trait PseudoCell<DelayType: DelayTrait> {
     fn get_port_timing_class(&self, _port: IdString, _clock_info_count: &u64) -> TimingPortClass {
         TimingPortClass::new()
     }
-    fn get_port_clocking_info(
-        &self,
-        _port: IdString,
-        _index: u64,
-    ) -> TimingClockingInfo<DelayType> {
+    fn get_port_clocking_info(&self, _port: IdString, _index: u64) -> TimingClockingInfo<DelayType>
+    where
+        DelayType: ~const DelayTrait,
+    {
         TimingClockingInfo::new()
     }
 }
@@ -475,49 +468,82 @@ impl<DelayType: DelayTrait> PseudoCell<DelayType> for RegionPlug {
         TimingPortClass::Ignore
     }
 
-    fn get_port_clocking_info(
-        &self,
-        _port: IdString,
-        _index: u64,
-    ) -> TimingClockingInfo<DelayType> {
+    fn get_port_clocking_info(&self, _port: IdString, _index: u64) -> TimingClockingInfo<DelayType>
+    where
+        DelayType: ~const DelayTrait,
+    {
         TimingClockingInfo::new()
     }
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct CellInfo<DelayType: DelayTrait, CellType: CellTrait<DelayType>> {
-    _arch_cell_info: ArchCellInfo,
-    _context: Option<Box<Context>>,
+    arch_cell_info: ArchCellInfo,
+    context: Option<Box<Context>>,
 
-    _name: IdString,
-    _cell_type: IdString,
-    _hierarchy_path: IdString,
-    _udata: i32,
+    name: IdString,
+    cell_type: IdString,
+    hierarchy_path: IdString,
+    udata: i32,
 
     ports: BTreeMap<IdString, PortInfo<DelayType, CellType>>,
     attributes: BTreeMap<IdString, Property>,
     parameters: BTreeMap<IdString, Property>,
 
-    _bel: BelId,
-    _bel_strength: PlaceStrength,
+    bel: BelId,
+    bel_strength: PlaceStrength,
 
     // cell is part of a cluster if != ClusterId
-    _cluster: ClusterId,
+    cluster: ClusterId,
 
     region: Option<Box<Region>>,
 
-    _pseudo_cell: Option<Box<CellType>>,
+    pseudo_cell: Option<std::rc::Rc<CellType>>,
 }
 
-impl<DelayType: DelayTrait, CellType: CellTrait<DelayType>> const PartialEq
-    for CellInfo<DelayType, CellType>
+impl<DelayType, CellType> const PartialEq for CellInfo<DelayType, CellType>
+where
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
 {
     fn eq(&self, other: &Self) -> bool {
         self == other
     }
 }
 
-impl<DelayType: DelayTrait, CellType: CellTrait<DelayType>> CellInfo<DelayType, CellType> {
+#[derive(Error, Debug)]
+pub enum CellError {
+    #[error("Invalid port type for connect port.")]
+    InvalidConnectPortType,
+    #[error("Port is already connected.")]
+    PortAlreadyConnected,
+    #[error("Driver cell is in use.")]
+    DriverCellInUse,
+}
+
+impl<DelayType, CellType> CellInfo<DelayType, CellType>
+where
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
+{
+    pub fn new() -> std::rc::Rc<Self> {
+        std::rc::Rc::new(Self {
+            arch_cell_info: ArchCellInfo::new(),
+            context: None,
+            name: IdString::new(),
+            cell_type: IdString::new(),
+            hierarchy_path: IdString::new(),
+            udata: 0,
+            ports: BTreeMap::new(),
+            attributes: BTreeMap::new(),
+            parameters: BTreeMap::new(),
+            bel: BelId::new(),
+            bel_strength: PlaceStrength::new(),
+            cluster: IdString::new(),
+            region: None,
+            pseudo_cell: None,
+        })
+    }
     pub fn add_input(&mut self, name: IdString) {
         self.ports.insert(
             name,
@@ -574,23 +600,57 @@ impl<DelayType: DelayTrait, CellType: CellTrait<DelayType>> CellInfo<DelayType, 
     }
 
     pub const fn is_pseudo(&self, _bel: BelId) -> bool {
-        todo!()
+        self.pseudo_cell.is_some()
     }
 
-    pub const fn get_location(&self, _bel: BelId) -> bool {
-        todo!()
+    pub fn get_location(&self, _bel: BelId) -> Loc
+    where
+        CellType: ~const CellTrait<DelayType> + ~const PseudoCell<DelayType>,
+    {
+        if let Some(pseudo_cell) = &self.pseudo_cell {
+            pseudo_cell.get_location()
+        } else {
+            assert!(self.bel != BelId::new());
+            todo!()
+            //  self.context.get_bel_location(bel)
+        }
     }
 
-    pub fn get_port(&self, name: IdString) -> &NetInfo<DelayType, CellType> {
-        let _found = &self.ports[&name];
-        //        if (found == self.ports.last_entry().) {
-        //
-        //        }
-        todo!()
+    pub fn get_port(&self, name: IdString) -> Option<&NetInfo<DelayType, CellType>> {
+        let found = self.ports.get(&name);
+        if let Some(found_port) = found {
+            Some(&found_port.net)
+        } else {
+            None
+        }
     }
 
-    pub fn connect_port(&mut self, _port_name: IdString, _net: &NetInfo<DelayType, CellType>) {
-        //        let port = self.ports[&port]
+    pub fn connect_port(
+        &mut self,
+        port_name: IdString,
+        net: &NetInfo<DelayType, CellType>,
+    ) -> Result<(), CellError> {
+        let mut port = self.ports.entry(port_name).or_default();
+        if *port.net == NetInfo::new() {
+            // TODO: Use an arena for these, probably need RC pointers till then too.
+            *port.net = net.clone();
+            match port.port_type {
+                PortType::Out => {
+                    if net.driver.cell.is_none() {
+                        port.net.driver.port = port_name;
+                    } else {
+                        return Err(CellError::DriverCellInUse);
+                    }
+                }
+                PortType::In | PortType::InOut => {
+                    let mut user: PortRef<DelayType, CellType> = PortRef::new();
+//                    user.cell = self.
+                }
+            }
+        } else {
+            return Err(CellError::PortAlreadyConnected);
+        }
+
         todo!()
     }
 
@@ -655,6 +715,14 @@ pub struct PortBus {
     name: IdString,
     offset: i32,
     brackets: bool,
+}
+
+impl Hash for PortBus {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.offset.hash(state);
+        self.brackets.hash(state);
+    }
 }
 
 impl const PartialEq for PortBus {
@@ -868,3 +936,9 @@ pub struct HierarchicalCell {
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Context {}
+
+impl Context {
+    pub const fn new() -> Self {
+        todo!()
+    }
+}

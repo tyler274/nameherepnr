@@ -5,10 +5,10 @@ pub mod base_context;
 pub mod base_types;
 pub mod bits;
 pub mod context;
+pub mod delay;
 pub mod id_string;
 pub mod property;
 pub mod types;
-pub mod delay;
 
 #[cfg(test)]
 mod tests;

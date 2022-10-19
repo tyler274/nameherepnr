@@ -435,5 +435,11 @@ pub struct ArchCellInfo {
     cell: CellEnum,
 }
 
+impl ArchCellInfo {
+    pub const fn new() -> Self {
+        todo!()
+    }
+}
+
 pub type BelBucketId = IdString;
 pub type ClusterId = IdString;
