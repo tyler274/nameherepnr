@@ -3,11 +3,22 @@ use crate::kernel::id_string::IdString;
 use hashers::oz::DJB2Hasher;
 use std::hash::{BuildHasher, BuildHasherDefault};
 use std::hash::{Hash, Hasher};
-use std::ops;
 
-#[derive(Debug, Copy, Clone, Hash, Ord, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct BelId {
     index: Option<u64>,
+}
+
+impl Hash for BelId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.index.hash(state);
+    }
+}
+
+impl Ord for BelId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.index.cmp(&other.index)
+    }
 }
 
 impl const PartialEq for BelId {
@@ -39,9 +50,9 @@ impl BelId {
             index: None,
         }
     }
-    pub const fn hash(&self) -> Option<u64> {
-        self.index
-    }
+    //    pub const fn hash(&self) -> Option<u64> {
+    //        self.index
+    //    }
 }
 
 impl Default for BelId {
@@ -50,9 +61,21 @@ impl Default for BelId {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct WireId {
     index: Option<u64>,
+}
+
+impl Hash for WireId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.index.hash(state);
+    }
+}
+
+impl Ord for WireId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.index.cmp(&other.index)
+    }
 }
 
 impl const PartialEq for WireId {
@@ -105,9 +128,15 @@ impl Default for WireId {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct PipId {
     index: Option<u64>,
+}
+
+impl Ord for PipId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.index.cmp(&other.index)
+    }
 }
 
 impl PipId {
@@ -117,8 +146,14 @@ impl PipId {
             index: None,
         }
     }
-    pub const fn hash(&self) -> Option<u64> {
-        self.index
+    //    pub const fn hash(&self) -> Option<u64> {
+    //        self.index
+    //    }
+}
+
+impl Hash for PipId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.index.hash(state);
     }
 }
 
@@ -144,7 +179,7 @@ impl const PartialOrd for PipId {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub enum GroupType {
     None,
     Frame,
@@ -158,6 +193,12 @@ pub enum GroupType {
     LC5SW,
     LC6SW,
     LC7SW,
+}
+
+impl Hash for GroupType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (*self as usize).hash(state);
+    }
 }
 
 impl const PartialEq for GroupType {
@@ -211,10 +252,6 @@ impl const PartialEq for GroupId {
     fn eq(&self, other: &Self) -> bool {
         self.gtype == other.gtype && self.x == other.x && self.y == other.y
     }
-
-    fn ne(&self, other: &Self) -> bool {
-        self.gtype != other.gtype || self.x != other.x || self.y != other.y
-    }
 }
 
 impl GroupId {
@@ -234,13 +271,19 @@ impl GroupId {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
 pub enum DecalType {
     None,
     Bel,
     Wire,
     Pip,
     Group,
+}
+
+impl Hash for DecalType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (*self as usize).hash(state);
+    }
 }
 
 impl DecalType {
@@ -258,10 +301,6 @@ impl Default for DecalType {
 impl const PartialEq for DecalType {
     fn eq(&self, other: &Self) -> bool {
         self == other
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        self != other
     }
 }
 
@@ -304,16 +343,6 @@ impl const PartialEq for DecalId {
                 (Some(s), Some(o)) => s == o,
             }
     }
-
-    fn ne(&self, other: &Self) -> bool {
-        self.dtype != other.dtype
-            || match (self.index, other.index) {
-                (None, None) => false,
-                (None, Some(_)) => true,
-                (Some(_), None) => true,
-                (Some(s), Some(o)) => s != o,
-            }
-    }
 }
 
 impl Hash for DecalId {
@@ -323,12 +352,21 @@ impl Hash for DecalId {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
 pub struct ArchNetInfo {
     is_global: bool,
     is_reset: bool,
     is_enable: bool,
 }
+
+impl Hash for ArchNetInfo {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.is_global.hash(state);
+        self.is_reset.hash(state);
+        self.is_enable.hash(state);
+    }
+}
+
 impl ArchNetInfo {
     pub const fn new() -> Self {
         Self {
@@ -352,11 +390,11 @@ pub struct NetInfo;
 
 #[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct LcInfo {
-    dffEnable: bool,
-    carryEnable: bool,
-    negClk: bool,
-    inputCount: i32,
-    lutInputMask: u32,
+    dff_enable: bool,
+    carry_enable: bool,
+    neg_clk: bool,
+    input_count: i32,
+    lut_input_mask: u32,
     clk: Box<NetInfo>,
     cen: Box<NetInfo>,
     sr: Box<NetInfo>,

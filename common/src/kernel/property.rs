@@ -102,7 +102,7 @@ impl TryFrom<Property> for BitVec {
 
     fn try_from(value: Property) -> Result<Self, Self::Error> {
         match value {
-            Property::Int(_, intval, strval) => Ok({
+            Property::Int(_, _intval, strval) => Ok({
                 let mut result = BitVec::with_capacity(strval.len());
                 for c in strval.chars() {
                     result.push(c == State::S1.into());
@@ -127,9 +127,44 @@ impl TryFrom<Property> for String {
 impl From<Property> for bool {
     fn from(value: Property) -> Self {
         match value {
-            Property::Int(_, intval, strval) => intval != 0,
+            Property::Int(_, intval, _strval) => intval != 0,
             Property::Str(_, strval) => strval.contains(State::S1.to_char()),
         }
+    }
+}
+
+impl Display for Property {
+    /// Convert to a string representation, escaping literal strings matching /^[01xz]* *$/ by adding a space at the end,
+    /// to disambiguate from binary strings
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Str(_state, strval) => {
+                    let mut result = strval.clone();
+                    let mut state = 0;
+                    for c in strval.chars() {
+                        if state == 0 {
+                            if c == '0' || c == '1' || c == 'x' || c == 'z' {
+                                state = 0;
+                            } else if c == ' ' {
+                                state = 1;
+                            } else {
+                                state = 2;
+                            }
+                        } else if state == 1 && c != ' ' {
+                            state = 2;
+                        }
+                    }
+                    if state < 2 {
+                        result.push(' ');
+                    }
+                    result
+                }
+                Self::Int(_state, _intval, strval) => strval.chars().rev().collect(),
+            }
+        )
     }
 }
 
@@ -147,7 +182,7 @@ impl Property {
         Self::Int(State::S0, intval, {
             let mut strval = String::with_capacity(width);
             for i in 0..width {
-                strval.push(if (intval & (1 << i) != 0) {
+                strval.push(if intval & (1 << i) != 0 {
                     State::S1.into()
                 } else {
                     State::S0.into()
@@ -168,37 +203,8 @@ impl Property {
                 State::S1 => 1,
                 _ => 0,
             },
-            { String::from(bit.to_char()) },
+            String::from(bit.to_char()),
         )
-    }
-
-    /// Convert to a string representation, escaping literal strings matching /^[01xz]* *$/ by adding a space at the end,
-    /// to disambiguate from binary strings
-    pub fn to_string(&self) -> String {
-        match self {
-            Self::Str(state, strval) => {
-                let mut result = strval.clone();
-                let mut state = 0;
-                for c in strval.chars() {
-                    if state == 0 {
-                        if (c == '0' || c == '1' || c == 'x' || c == 'z') {
-                            state = 0;
-                        } else if c == ' ' {
-                            state = 1;
-                        } else {
-                            state = 2;
-                        }
-                    } else if (state == 1 && c != ' ') {
-                        state = 2;
-                    }
-                }
-                if state < 2 {
-                    result.push(' ');
-                }
-                result
-            }
-            Self::Int(_state, _intval, strval) => strval.chars().rev().collect(),
-        }
     }
 
     pub fn size(&self) -> usize {
@@ -207,13 +213,13 @@ impl Property {
             Property::Int(_, _, strval) => strval.len(),
         }
     }
-    
+
     pub fn update_intval(&mut self) {
         match self {
-            Self::Str(state, strval) => {
+            Self::Str(_state, _strval) => {
                 todo!()
             }
-            Self::Int(state, intval, strval) => {
+            Self::Int(_state, intval, strval) => {
                 *intval = 0;
                 for i in 0..strval.len() {
                     // TODO: This is not a good way to do this conversion, implement a conversion to character.
@@ -233,24 +239,21 @@ impl Property {
 
     pub fn is_fully_def(&self) -> bool {
         match self {
-            Self::Str(state, strval) => {
+            Self::Str(_state, _strval) => {
                 todo!()
             }
-            Self::Int(state, intval, strval) => {
-                match strval
+            Self::Int(_state, _intval, strval) => {
+                //                strval.chars().find(|&x| x == State::Sx.into() || x == State::Sz.into()).is_none()
+                !strval
                     .chars()
-                    .find(|&x| x == State::Sx.into() || x == State::Sz.into())
-                {
-                    Some(_) => false,
-                    None => true,
-                }
+                    .any(|x| x == State::Sx.into() || x == State::Sz.into())
             }
         }
     }
     pub fn extract(&self, offset: usize, len: usize, padding: State) -> Self {
         let mut ret = Property::default();
         match &mut ret {
-            Property::Int(state, intval, strval) => {
+            Property::Int(_state, _intval, strval) => {
                 *strval = String::with_capacity(len);
                 for i in offset..offset + len {
                     strval.push(if i < strval.len() {
@@ -279,12 +282,9 @@ impl Property {
                 && c != State::Sx.to_char()
                 && c != State::Sz.to_char()
         });
-        if cursor == None {
-
-        } else if s.find(|c: char| {
-            c != ' '
-        }) == None {
-            if let Property::Int(state, intval ,strval ) = &mut p {
+        if cursor.is_none() {
+        } else if s.find(|c: char| c != ' ').is_none() {
+            if let Property::Int(_state, _intval, strval) = &mut p {
                 *strval = s.chars().rev().collect()
             }
             p.update_intval()

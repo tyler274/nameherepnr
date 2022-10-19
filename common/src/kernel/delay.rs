@@ -1,15 +1,12 @@
-use std::ops::{self, Add};
-
 //use crate::kernel::base_clusterinfo::BaseClusterInfo;
 //use crate::kernel::id_string::IdString;
 //use hashers::oz::DJB2Hasher;
 //use std::hash::{BuildHasher, BuildHasherDefault};
-use num_traits::int::PrimInt;
 use std::cmp::{Ord, Ordering};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::Destruct;
-use std::ops::{Deref, Sub};
+use std::ops::{Add, Sub};
 
 /// The trait that all delays have to implement to fit within our model.
 #[const_trait]
@@ -22,8 +19,17 @@ where
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct Delay<DelayType: DelayTrait>(DelayType);
+
+impl<DelayType> Hash for Delay<DelayType>
+where
+    DelayType: DelayTrait,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
 
 impl<DelayType> Delay<DelayType>
 where
@@ -102,10 +108,20 @@ where
 }
 
 /// minimum and maximum delay
-#[derive(Debug, Copy, Clone, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct DelayPair<DelayType: DelayTrait> {
     min_delay: Delay<DelayType>,
     max_delay: Delay<DelayType>,
+}
+
+impl<DelayType> Hash for DelayPair<DelayType>
+where
+    DelayType: DelayTrait,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.min_delay.hash(state);
+        self.max_delay.hash(state);
+    }
 }
 
 impl<DelayType: DelayTrait> DelayPair<DelayType> {
@@ -184,13 +200,23 @@ impl<DelayType: DelayTrait + ~const PartialEq> const PartialEq for DelayPair<Del
 }
 
 /// four-quadrant, min and max rise and fall delay
-#[derive(Debug, Copy, Clone, Hash, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct DelayQuad<DelayType>
 where
     DelayType: DelayTrait,
 {
     rise: DelayPair<DelayType>,
     fall: DelayPair<DelayType>,
+}
+
+impl<DelayType> Hash for DelayQuad<DelayType>
+where
+    DelayType: DelayTrait,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.rise.hash(state);
+        self.fall.hash(state);
+    }
 }
 
 impl<DelayType> const PartialEq for DelayQuad<DelayType>
@@ -206,7 +232,7 @@ impl<DelayType> const PartialOrd for DelayQuad<DelayType>
 where
     DelayType: DelayTrait + ~const PartialOrd,
 {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
         todo!()
     }
 }

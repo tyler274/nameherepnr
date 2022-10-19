@@ -175,7 +175,7 @@ impl ArcBounds {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialOrd, Ord, Debug, Hash)]
+#[derive(Clone, Copy, Eq, PartialOrd, Ord, Debug)]
 pub enum PlaceStrength {
     None = 0,
     Weak = 1,
@@ -184,6 +184,12 @@ pub enum PlaceStrength {
     Fixed = 4,
     Locked = 5,
     User = 6,
+}
+
+impl Hash for PlaceStrength {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (*self as usize).hash(state);
+    }
 }
 
 impl const PartialEq for PlaceStrength {

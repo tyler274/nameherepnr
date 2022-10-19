@@ -12,10 +12,9 @@ use crate::kernel::id_string::{IdPair, IdString};
 use crate::kernel::property::Property;
 use ordered_float::NotNan;
 use std::cmp::PartialEq;
-use std::collections::hash_map::HashMap;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
-use std::ops;
+use std::hash::Hash;
 use std::ops::Deref;
 use typed_index_collections::TiVec;
 
@@ -45,10 +44,17 @@ impl const PartialEq for DecalXY {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct BelPin {
     bel: BelId,
     pin: IdString,
+}
+
+impl Hash for BelPin {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.bel.hash(state);
+        self.pin.hash(state);
+    }
 }
 
 impl const PartialEq for BelPin {
@@ -80,10 +86,17 @@ pub struct Region {
 //    }
 //}
 
-#[derive(Debug, Copy, Clone, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct PipMap {
     pip: PipId,
     strength: PlaceStrength,
+}
+
+impl Hash for PipMap {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.pip.hash(state);
+        self.strength.hash(state);
+    }
 }
 
 impl PipMap {
@@ -225,11 +238,17 @@ where
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub enum PortType {
     In = 0,
     Out = 1,
     InOut = 2,
+}
+
+impl Hash for PortType {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (*self as usize).hash(state);
+    }
 }
 
 impl const PartialEq for PortType {
@@ -290,7 +309,7 @@ impl<DelayType: DelayTrait, CellType: CellTrait<DelayType>> Default
 //    }
 //}
 
-#[derive(Debug, Copy, Clone, Hash, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub enum TimingPortClass {
     ClockInput,     // Clock input to a sequential cell
     GenClock,       // Generated clock output (PLL, DCC, etc)
@@ -301,6 +320,12 @@ pub enum TimingPortClass {
     StartPoint,    // Unclocked primary startpoint, such as an IO cell output
     EndPoint,      // Unclocked primary endpoint, such as an IO cell input
     Ignore, // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
+}
+
+impl Hash for TimingPortClass {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (*self as usize).hash(state);
+    }
 }
 
 impl TimingPortClass {
@@ -315,10 +340,16 @@ impl const PartialEq for TimingPortClass {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub enum ClockEdge {
     RisingEdge,
     FallingEdge,
+}
+
+impl Hash for ClockEdge {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (*self as usize).hash(state);
+    }
 }
 
 impl const PartialEq for ClockEdge {
@@ -327,13 +358,26 @@ impl const PartialEq for ClockEdge {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct TimingClockingInfo<DelayType: DelayTrait> {
     clock_port: IdString, // Port name of clock domain
     edge: ClockEdge,
     setup: DelayPair<DelayType>,      // Input timing checks
     hold: DelayPair<DelayType>,       // Input timing checks
     clock_to_q: DelayQuad<DelayType>, // Output clock-to-Q time
+}
+
+impl<DelayType> Hash for TimingClockingInfo<DelayType>
+where
+    DelayType: DelayTrait,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.clock_port.hash(state);
+        self.edge.hash(state);
+        self.setup.hash(state);
+        self.hold.hash(state);
+        self.clock_to_q.hash(state);
+    }
 }
 
 impl<DelayType> const PartialEq for TimingClockingInfo<DelayType>
@@ -370,21 +414,25 @@ pub trait PseudoCell<DelayType: DelayTrait> {
     fn get_location(&self) -> Loc {
         Loc::origin()
     }
-    fn get_port_wire(&self, port: IdString) -> Option<WireId> {
+    fn get_port_wire(&self, _port: IdString) -> Option<WireId> {
         None
     }
     fn get_delay(
         &self,
-        from_port: IdString,
-        to_port: IdString,
-        delay: &DelayQuad<DelayType>,
+        _from_port: IdString,
+        _to_port: IdString,
+        _delay: &DelayQuad<DelayType>,
     ) -> bool {
         false
     }
-    fn get_port_timing_class(&self, port: IdString, clock_info_count: &u64) -> TimingPortClass {
+    fn get_port_timing_class(&self, _port: IdString, _clock_info_count: &u64) -> TimingPortClass {
         TimingPortClass::new()
     }
-    fn get_port_clocking_info(&self, port: IdString, index: u64) -> TimingClockingInfo<DelayType> {
+    fn get_port_clocking_info(
+        &self,
+        _port: IdString,
+        _index: u64,
+    ) -> TimingClockingInfo<DelayType> {
         TimingClockingInfo::new()
     }
 }
@@ -409,55 +457,56 @@ impl<DelayType: DelayTrait> PseudoCell<DelayType> for RegionPlug {
     }
 
     fn get_port_wire(&self, port: IdString) -> Option<WireId> {
-        if let Some(wire) = self.port_wires.get(&port) {
-            Some(*wire)
-        } else {
-            None
-        }
+        //        self.port_wires.get(&port).map(|wire| *wire)
+        self.port_wires.get(&port).copied()
     }
 
     // TODO: partial reconfiguration region timing
     fn get_delay(
         &self,
-        from_port: IdString,
-        to_port: IdString,
-        delay: &DelayQuad<DelayType>,
+        _from_port: IdString,
+        _to_port: IdString,
+        _delay: &DelayQuad<DelayType>,
     ) -> bool {
         false
     }
 
-    fn get_port_timing_class(&self, port: IdString, clock_info_count: &u64) -> TimingPortClass {
+    fn get_port_timing_class(&self, _port: IdString, _clock_info_count: &u64) -> TimingPortClass {
         TimingPortClass::Ignore
     }
 
-    fn get_port_clocking_info(&self, port: IdString, index: u64) -> TimingClockingInfo<DelayType> {
+    fn get_port_clocking_info(
+        &self,
+        _port: IdString,
+        _index: u64,
+    ) -> TimingClockingInfo<DelayType> {
         TimingClockingInfo::new()
     }
 }
 
 #[derive(Debug, Clone, Eq)]
 pub struct CellInfo<DelayType: DelayTrait, CellType: CellTrait<DelayType>> {
-    arch_cell_info: ArchCellInfo,
-    context: Option<Box<Context>>,
+    _arch_cell_info: ArchCellInfo,
+    _context: Option<Box<Context>>,
 
-    name: IdString,
-    cell_type: IdString,
-    hierarchy_path: IdString,
-    udata: i32,
+    _name: IdString,
+    _cell_type: IdString,
+    _hierarchy_path: IdString,
+    _udata: i32,
 
     ports: BTreeMap<IdString, PortInfo<DelayType, CellType>>,
     attributes: BTreeMap<IdString, Property>,
     parameters: BTreeMap<IdString, Property>,
 
-    bel: BelId,
-    bel_strength: PlaceStrength,
+    _bel: BelId,
+    _bel_strength: PlaceStrength,
 
     // cell is part of a cluster if != ClusterId
-    cluster: ClusterId,
+    _cluster: ClusterId,
 
     region: Option<Box<Region>>,
 
-    pseudo_cell: Option<Box<CellType>>,
+    _pseudo_cell: Option<Box<CellType>>,
 }
 
 impl<DelayType: DelayTrait, CellType: CellTrait<DelayType>> const PartialEq
@@ -524,88 +573,93 @@ impl<DelayType: DelayTrait, CellType: CellTrait<DelayType>> CellInfo<DelayType, 
         }
     }
 
-    pub const fn is_pseudo(&self, bel: BelId) -> bool {
+    pub const fn is_pseudo(&self, _bel: BelId) -> bool {
         todo!()
     }
 
-    pub const fn get_location(&self, bel: BelId) -> bool {
+    pub const fn get_location(&self, _bel: BelId) -> bool {
         todo!()
     }
 
     pub fn get_port(&self, name: IdString) -> &NetInfo<DelayType, CellType> {
-        let found = &self.ports[&name];
+        let _found = &self.ports[&name];
         //        if (found == self.ports.last_entry().) {
         //
         //        }
         todo!()
     }
 
-    pub fn connect_port(&mut self, port_name: IdString, net: &NetInfo<DelayType, CellType>) {
+    pub fn connect_port(&mut self, _port_name: IdString, _net: &NetInfo<DelayType, CellType>) {
         //        let port = self.ports[&port]
         todo!()
     }
 
-    pub fn disconnect_port(&mut self, port: IdString) {
+    pub fn disconnect_port(&mut self, _port: IdString) {
         todo!()
     }
 
     pub fn connect_ports(
         &mut self,
-        port: IdString,
-        other: &CellInfo<DelayType, CellType>,
-        other_port: IdString,
+        _port: IdString,
+        _other: &CellInfo<DelayType, CellType>,
+        _other_port: IdString,
     ) {
         todo!()
     }
 
     pub fn move_port_to(
         &mut self,
-        port: IdString,
-        other: &CellInfo<DelayType, CellType>,
-        other_port: IdString,
+        _port: IdString,
+        _other: &CellInfo<DelayType, CellType>,
+        _other_port: IdString,
     ) {
         todo!()
     }
 
-    pub fn rename_port(&mut self, old_name: IdString, new_name: IdString) {
+    pub fn rename_port(&mut self, _old_name: IdString, _new_name: IdString) {
         todo!()
     }
 
     pub fn move_port_bus_to(
         &mut self,
-        old_name: IdString,
-        old_offset: i32,
-        old_brackets: bool,
-        new_cell: &CellInfo<DelayType, CellType>,
-        new_name: IdString,
-        new_offset: i32,
-        new_brackets: bool,
-        width: i32,
+        _old_port_bus: PortBus,
+        _new_cell: &CellInfo<DelayType, CellType>,
+        _new_port_bus: PortBus,
+        _width: i32,
     ) {
         todo!()
     }
 
     pub fn copy_port_(
         &self,
-        port: IdString,
-        other: &CellInfo<DelayType, CellType>,
-        other_port: IdString,
+        _port: IdString,
+        _other: &CellInfo<DelayType, CellType>,
+        _other_port: IdString,
     ) {
         todo!()
     }
 
     pub fn copy_port_bus_to(
         &self,
-        old_name: IdString,
-        old_offset: i32,
-        old_brackets: bool,
-        new_cell: &CellInfo<DelayType, CellType>,
-        new_name: IdString,
-        new_offset: i32,
-        new_brackets: bool,
-        width: i32,
+        _old_port_bus: PortBus,
+        _new_cell: &CellInfo<DelayType, CellType>,
+        _new_port_bus: PortBus,
+        _width: i32,
     ) {
         todo!()
+    }
+}
+
+#[derive(Copy, Clone, Eq)]
+pub struct PortBus {
+    name: IdString,
+    offset: i32,
+    brackets: bool,
+}
+
+impl const PartialEq for PortBus {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.offset == other.offset && self.brackets == other.brackets
     }
 }
 
@@ -638,10 +692,17 @@ pub struct ClockFmax {
     constraint: NotNan<f32>,
 }
 
-#[derive(Debug, Copy, Clone, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct ClockEvent {
     clock: IdString,
     edge: ClockEdge,
+}
+
+impl Hash for ClockEvent {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.clock.hash(state);
+        self.edge.hash(state);
+    }
 }
 
 impl const PartialEq for ClockEvent {
@@ -650,10 +711,17 @@ impl const PartialEq for ClockEvent {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct ClockPair {
     start: ClockEvent,
     end: ClockEvent,
+}
+
+impl Hash for ClockPair {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.start.hash(state);
+        self.end.hash(state);
+    }
 }
 
 impl const PartialEq for ClockPair {
@@ -721,7 +789,7 @@ pub struct CriticalPath<DelayType: DelayTrait> {
 }
 
 /// Holds timing information of a single source to sink path of a net
-#[derive(Debug, Copy, Clone, Hash, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct NetSinkTiming<DelayType: DelayTrait> {
     // Clock event pair
     clock_pair: ClockPair,
@@ -731,6 +799,18 @@ pub struct NetSinkTiming<DelayType: DelayTrait> {
     delay: Delay<DelayType>,
     // Delay budget
     budget: Delay<DelayType>,
+}
+
+impl<DelayType> Hash for NetSinkTiming<DelayType>
+where
+    DelayType: DelayTrait,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.clock_pair.hash(state);
+        self.cell_port.hash(state);
+        self.delay.hash(state);
+        self.budget.hash(state);
+    }
 }
 
 impl<DelayType> const PartialEq for NetSinkTiming<DelayType>

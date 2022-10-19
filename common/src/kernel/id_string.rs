@@ -1,7 +1,7 @@
 use crate::kernel::base_context::BaseCtx;
-use std::fmt;
+use std::hash::Hash;
 
-#[derive(Debug, Copy, Clone, Hash, Ord, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct IdString {
     index: u64,
 }
@@ -18,11 +18,23 @@ impl const PartialOrd for IdString {
     }
 }
 
+impl const Ord for IdString {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.index.cmp(&other.index)
+    }
+}
+
+impl Hash for IdString {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.index.hash(state);
+    }
+}
+
 impl IdString {
-    pub fn initialize_arch(ctx: &BaseCtx) {
+    pub fn initialize_arch(_ctx: &BaseCtx) {
         todo!()
     }
-    pub fn initialize_add(ctx: &BaseCtx, s: &str, idx: u64) {
+    pub fn initialize_add(_ctx: &BaseCtx, _s: &str, _idx: u64) {
         todo!()
     }
     pub const fn new() -> Self {
@@ -33,7 +45,7 @@ impl IdString {
         x.index = index;
         x
     }
-    pub fn set(&mut self, ctx: &BaseCtx, s: &str) {
+    pub fn set(&mut self, _ctx: &BaseCtx, _s: &str) {
         todo!()
     }
 
@@ -43,17 +55,17 @@ impl IdString {
         x
     }
 
-    pub fn to_string(&self, ctx: &BaseCtx) -> String {
+    pub fn to_string(&self, _ctx: &BaseCtx) -> String {
         todo!()
-//        ctx.idstring_idx_to_str.at(self.index)
+        //        ctx.idstring_idx_to_str.at(self.index)
     }
 
     pub fn empty(&self) -> bool {
         self.index == 0
     }
-    pub const fn hash(&self) -> u64 {
-        self.index
-    }
+    //    pub const fn hash(&self) -> u64 {
+    //        self.index
+    //    }
 
     pub const fn equals(&self, other: &Self) -> bool {
         self.index == other.index
@@ -86,11 +98,18 @@ impl Default for IdString {
 }
 
 /// A wrapper around the tuple so I can implement const traits on it.
-#[derive(Debug, Copy, Clone, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct IdPair(IdString, IdString);
 
-impl const PartialEq for IdPair{
+impl const PartialEq for IdPair {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1
+    }
+}
+
+impl Hash for IdPair {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+        self.1.hash(state);
     }
 }

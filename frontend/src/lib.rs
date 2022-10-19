@@ -15,23 +15,23 @@ pub fn add(left: usize, right: usize) -> usize {
 
 // Used for hierarchy resolution
 pub struct ModuleInfo {
-    is_top: bool,
-    is_blackbox: bool,
-    is_whitebox: bool,
+    _is_top: bool,
+    _is_blackbox: bool,
+    _is_whitebox: bool,
     // inline bool is_box() const { return is_blackbox || is_whitebox; }
-    instantiated_celltypes: Option<String>,
+    _instantiated_celltypes: Option<String>,
 }
 
 impl ModuleInfo {
     pub const fn new() -> Self {
         Self {
-            is_top: false,
-            is_blackbox: false,
-            is_whitebox: false,
-            instantiated_celltypes: None, // IdString
+            _is_top: false,
+            _is_blackbox: false,
+            _is_whitebox: false,
+            _instantiated_celltypes: None, // IdString
         }
     }
-    fn is_box(&self) -> bool {
-        self.is_blackbox || self.is_whitebox
+    fn _is_box(&self) -> bool {
+        self._is_blackbox || self._is_whitebox
     }
 }
