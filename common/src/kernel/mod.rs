@@ -3,7 +3,6 @@ pub mod base_arch;
 pub mod base_clusterinfo;
 pub mod base_context;
 pub mod base_types;
-pub mod bits;
 pub mod cell;
 pub mod context;
 pub mod delay;
