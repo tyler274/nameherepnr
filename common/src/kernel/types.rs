@@ -3,6 +3,7 @@
 /// either put it in it's own header, or in nextpnr_base_types.h.
 // TODO: Need to figure out the cargo feature based method to
 // import the relevant arch definitions.
+// TODO: Instead of the above, implement a unified database system that can cleanly represent Xilinx's story.
 use crate::ice40::arch_defs::{
     ArchCellInfo, ArchNetInfo, BelId, ClusterId, DecalId, PipId, WireId,
 };
@@ -15,8 +16,7 @@ use std::cmp::PartialEq;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::marker::{self, PhantomData};
-use std::rc::{Rc, Weak};
+use std::marker::PhantomData;
 use thiserror::Error;
 use thunderdome::{Arena, Index};
 use typed_index_collections::TiVec;
@@ -108,6 +108,12 @@ impl Region {
     }
 }
 
+impl Default for Region {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Copy, Clone, Eq)]
 pub struct PipMap {
     pip: PipId,
@@ -149,7 +155,10 @@ where
     CellType: CellTrait<DelayType>,
 {
     //    cell: Option<Weak<CellInfo<DelayType, CellType>>>,
+    /// An index into the arena of cells leading to the cell that a port is tied to.
     cell: Option<Index>,
+    /// A phantom data entry to ensure that the PortRef remains specialized to the cell it was instantiated on.
+    /// Might want to track the lifetime of the relevant cell arena as well.
     cell_phantom: PhantomData<CellType>,
     port: IdString,
     budget: Delay<DelayType>,
@@ -220,8 +229,8 @@ where
 
     aliases: Vec<IdString>, // entries in net_aliases that point to this net
 
-    clk_constr: Box<ClockConstraint<DelayType>>,
-
+    //    clk_constr: Box<ClockConstraint<DelayType>>,
+    clk_constr: Option<Index>,
     //    region: Option<Box<Region>>,
     region: Option<Index>,
 }
@@ -238,12 +247,23 @@ where
             hierarchy_path: IdString::new(),
             udata: 0,
             driver: PortRef::new(),
+            // TODO: Go upstream and get this made const.
             users: TiVec::new(),
             attrs: BTreeMap::new(),
             wires: BTreeMap::new(),
             aliases: Vec::new(),
-            clk_constr: Box::new(ClockConstraint::new()),
+            clk_constr: None,
             region: None,
+        }
+    }
+    pub fn with_arena(
+        region_arena: &mut Arena<Region>,
+        clk_constr_arena: &mut Arena<ClockConstraint<DelayType>>,
+    ) -> Self {
+        Self {
+            clk_constr: Some(clk_constr_arena.insert(ClockConstraint::new())),
+            region: Some(region_arena.insert(Region::new())),
+            ..Default::default()
         }
     }
     pub fn with_name(name: IdString) -> Self {
@@ -290,9 +310,11 @@ where
     CellType: CellTrait<DelayType>,
 {
     name: IdString,
-    net: Box<NetInfo<DelayType, CellType>>,
+    //    net: Box<NetInfo<DelayType, CellType>>,
+    net: Option<Index>,
+    _net_phantom: PhantomData<NetInfo<DelayType, CellType>>,
     port_type: PortType,
-    user_index: TiVec<usize, PortRef<DelayType, CellType>>,
+    user_index: usize,
 }
 
 impl<DelayType, CellType> PortInfo<DelayType, CellType>
@@ -303,9 +325,19 @@ where
     pub fn new() -> Self {
         Self {
             name: IdString::new(),
-            net: Box::new(NetInfo::new()),
+            //            net: Box::new(NetInfo::new()),
+            net: None,
             port_type: PortType::In,
-            user_index: TiVec::new(),
+            user_index: 0,
+            _net_phantom: PhantomData,
+        }
+    }
+    pub fn with_arena(_net_arena: &mut Arena<NetInfo<DelayType, CellType>>) -> Self {
+        Self {
+            name: IdString::new(),
+            //            net: Box::new(NetInfo::new()),
+            net: None,
+            ..Default::default()
         }
     }
     pub fn update_name(&mut self, name: IdString) -> &mut Self {
@@ -513,7 +545,7 @@ where
     DelayType: DelayTrait,
     CellType: CellTrait<DelayType>,
 {
-    arch_cell_info: ArchCellInfo,
+    _arch_cell_info: ArchCellInfo,
     // Lets try using Arena indices for these.
     //    context: Option<Box<Context>>,
     //    region: Option<Box<Region>>,
@@ -521,26 +553,27 @@ where
     //    rc_self: Weak<Self>,
 
     // Index to the context within the Context arena.
-    context: Option<Index>,
+    _context: Option<Index>,
     // Index to the region within the Region arena.
     region: Option<Index>,
+    // TODO: What is a pseudo cell really?
     pseudo_cell: Option<Index>,
     // Index to this cell in the Arena
     self_index: Option<Index>,
-    name: IdString,
-    cell_type: IdString,
-    hierarchy_path: IdString,
-    udata: i32,
+    _name: IdString,
+    _cell_type: IdString,
+    _hierarchy_path: IdString,
+    _udata: i32,
 
     ports: BTreeMap<IdString, PortInfo<DelayType, CellType>>,
     attributes: BTreeMap<IdString, Property>,
     parameters: BTreeMap<IdString, Property>,
 
     bel: BelId,
-    bel_strength: PlaceStrength,
+    _bel_strength: PlaceStrength,
 
     // cell is part of a cluster if != ClusterId
-    cluster: ClusterId,
+    _cluster: ClusterId,
 }
 
 impl<DelayType, CellType> const PartialEq for CellInfo<DelayType, CellType>
@@ -561,6 +594,8 @@ pub enum CellError {
     PortAlreadyConnected,
     #[error("Driver cell is in use.")]
     DriverCellInUse,
+    #[error("Net Index not found.")]
+    NetIndexNotFound,
 }
 
 impl<DelayType, CellType> CellInfo<DelayType, CellType>
@@ -568,27 +603,34 @@ where
     DelayType: DelayTrait,
     CellType: CellTrait<DelayType>,
 {
-    pub fn new(
+    pub fn new() -> Self {
+        Self {
+            _arch_cell_info: ArchCellInfo::new(),
+            _context: None,
+            region: None,
+            pseudo_cell: None,
+            _name: IdString::new(),
+            _cell_type: IdString::new(),
+            _hierarchy_path: IdString::new(),
+            _udata: 0,
+            ports: BTreeMap::new(),
+            attributes: BTreeMap::new(),
+            parameters: BTreeMap::new(),
+            bel: BelId::new(),
+            _bel_strength: PlaceStrength::new(),
+            _cluster: IdString::new(),
+            self_index: None,
+        }
+    }
+    pub fn with_arena(
         self_arena: &mut Arena<Self>,
         ctx_arena: &mut Arena<Context>,
         region_arena: &mut Arena<Region>,
     ) -> Index {
         let n = Self {
-            arch_cell_info: ArchCellInfo::new(),
-            context: Some(ctx_arena.insert(Context::new())),
+            _context: Some(ctx_arena.insert(Context::new())),
             region: Some(region_arena.insert(Region::new())),
-            pseudo_cell: None,
-            name: IdString::new(),
-            cell_type: IdString::new(),
-            hierarchy_path: IdString::new(),
-            udata: 0,
-            ports: BTreeMap::new(),
-            attributes: BTreeMap::new(),
-            parameters: BTreeMap::new(),
-            bel: BelId::new(),
-            bel_strength: PlaceStrength::new(),
-            cluster: IdString::new(),
-            self_index: None,
+            ..Default::default()
         };
         let index = self_arena.insert(n);
         self_arena.get_mut(index).unwrap().self_index = Some(index);
@@ -600,8 +642,9 @@ where
             PortInfo {
                 name,
                 port_type: PortType::In,
-                net: self.ports[&name].net.clone(),
-                user_index: self.ports[&name].user_index.clone(),
+                net: self.ports[&name].net,
+                user_index: self.ports[&name].user_index,
+                ..Default::default()
             },
         );
     }
@@ -611,8 +654,9 @@ where
             PortInfo {
                 name,
                 port_type: PortType::Out,
-                net: self.ports[&name].net.clone(),
-                user_index: self.ports[&name].user_index.clone(),
+                net: self.ports[&name].net,
+                user_index: self.ports[&name].user_index,
+                ..Default::default()
             },
         );
     }
@@ -622,8 +666,9 @@ where
             PortInfo {
                 name,
                 port_type: PortType::InOut,
-                net: self.ports[&name].net.clone(),
-                user_index: self.ports[&name].user_index.clone(),
+                net: self.ports[&name].net,
+                user_index: self.ports[&name].user_index,
+                ..Default::default()
             },
         );
     }
@@ -644,8 +689,8 @@ where
     pub fn test_region(&self, bel: BelId, region_arena: &mut Arena<Region>) -> bool {
         if let Some(region) = &self.region {
             let reg = region_arena.get(*region).unwrap();
-            reg.constr_bels ||  reg.bels.contains_key(&bel)
-//            region.constr_bels || region.bels.contains_key(&bel)
+            reg.constr_bels || reg.bels.contains_key(&bel)
+        //            region.constr_bels || region.bels.contains_key(&bel)
         } else {
             true
         }
@@ -655,13 +700,13 @@ where
         self.pseudo_cell.is_some()
     }
 
-    pub fn get_location(&self, _bel: BelId, pcell_arena: &mut Arena<CellType>) -> Loc
+    pub fn get_location(&self, _bel: BelId, _pcell_arena: &mut Arena<CellType>) -> Loc
     where
         CellType: ~const CellTrait<DelayType> + ~const PseudoCell<DelayType>,
     {
-        if let Some(pseudo_cell) = &self.pseudo_cell {
-//            pseudo_cell.get_location()
-        todo!()
+        if let Some(_pseudo_cell) = &self.pseudo_cell {
+            //            pseudo_cell.get_location()
+            todo!()
         } else {
             assert!(self.bel != BelId::new());
             todo!()
@@ -669,10 +714,10 @@ where
         }
     }
 
-    pub fn get_port(&self, name: IdString) -> Option<&NetInfo<DelayType, CellType>> {
+    pub fn get_port(&self, name: IdString) -> Option<Index> {
         let found = self.ports.get(&name);
         if let Some(found_port) = found {
-            Some(&found_port.net)
+            found_port.net
         } else {
             None
         }
@@ -681,31 +726,46 @@ where
     pub fn connect_port(
         &mut self,
         port_name: IdString,
-        net: &NetInfo<DelayType, CellType>,
+        //        net: &NetInfo<DelayType, CellType>,
+        net: Index,
+        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
     ) -> Result<(), CellError> {
-        let mut port = self.ports.entry(port_name).or_default();
-        if *port.net == NetInfo::new() {
-            // TODO: Use an arena for these, probably need RC pointers till then too.
-            *port.net = net.clone();
+        // Get the port from our btree mapping that matches the passed in port_name value.
+        // If there's nothing there just return the default value.
+        let port = self.ports.entry(port_name).or_default();
+        // Get the index of the net of the port we just looked up.
+        let net_index = port.net.ok_or(CellError::NetIndexNotFound)?;
+        // Lookup the existing net using this net index, and the net of the index passed in.
+        let (self_net, passed_net) = net_arena.get2_mut(net_index, net);
+        // Unwrap out net mapping to the port's net, and the net mapping to the passed in net index.
+        let self_net = self_net.ok_or(CellError::NetIndexNotFound)?;
+        let passed_net = passed_net.ok_or(CellError::NetIndexNotFound)?;
+        // Check if the net mapped to the port at the given port_name is the default value.
+        if *self_net == Default::default() {
+            // Update this cell's port's net index with the passed in net index.
+            port.net = Some(net);
             match port.port_type {
                 PortType::Out => {
-                    if net.driver.cell.is_none() {
-                        port.net.driver.port = port_name;
+                    // Update the passed in net now since we reassigned self's port's to it alraady.
+                    if passed_net.driver.cell.is_none() {
+                        passed_net.driver.cell = self.self_index;
+                        passed_net.driver.port = port_name;
+                        Ok(())
                     } else {
-                        return Err(CellError::DriverCellInUse);
+                        Err(CellError::DriverCellInUse)
                     }
                 }
                 PortType::In | PortType::InOut => {
                     let mut user: PortRef<DelayType, CellType> = PortRef::new();
-                    todo!()
-                    //                    user.cell = self.
+                    user.cell = self.self_index;
+                    user.port = port_name;
+                    port.user_index = passed_net.users.push_and_get_key(user);
+                    Ok(())
                 }
             }
         } else {
-            return Err(CellError::PortAlreadyConnected);
+            Err(CellError::PortAlreadyConnected)
         }
-
-        todo!()
     }
 
     pub fn disconnect_port(&mut self, _port: IdString) {
@@ -761,6 +821,16 @@ where
         _width: i32,
     ) {
         todo!()
+    }
+}
+
+impl<DelayType, CellType> Default for CellInfo<DelayType, CellType>
+where
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }
 
