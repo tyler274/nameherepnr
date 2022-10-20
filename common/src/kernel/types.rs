@@ -15,7 +15,10 @@ use std::cmp::PartialEq;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::marker::{self, PhantomData};
+use std::rc::{Rc, Weak};
 use thiserror::Error;
+use thunderdome::{Arena, Index};
 use typed_index_collections::TiVec;
 
 // Unstable trait bounds aliasing, to reduce code duplication.
@@ -68,7 +71,7 @@ impl const PartialEq for BelPin {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Region {
     name: IdString,
 
@@ -90,6 +93,20 @@ pub struct Region {
 //        //   && self.bels == other.bels
 //    }
 //}
+
+impl Region {
+    pub fn new() -> Self {
+        Self {
+            name: IdString::new(),
+            constr_bels: false,
+            constr_wires: false,
+            constr_pips: false,
+            bels: BTreeMap::new(),
+            wires: BTreeMap::new(),
+            piplocs: BTreeMap::new(),
+        }
+    }
+}
 
 #[derive(Debug, Copy, Clone, Eq)]
 pub struct PipMap {
@@ -126,8 +143,14 @@ impl const PartialEq for PipMap {
 }
 
 #[derive(Debug, Clone)]
-pub struct PortRef<DelayType: DelayTrait, CellType: CellTrait<DelayType>> {
-    cell: Option<std::rc::Weak<CellInfo<DelayType, CellType>>>,
+pub struct PortRef<DelayType, CellType>
+where
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
+{
+    //    cell: Option<Weak<CellInfo<DelayType, CellType>>>,
+    cell: Option<Index>,
+    cell_phantom: PhantomData<CellType>,
     port: IdString,
     budget: Delay<DelayType>,
 }
@@ -144,7 +167,7 @@ where
                 (None, None) => true,
                 (None, Some(_)) => false,
                 (Some(_), None) => false,
-                (Some(s), Some(o)) => s.ptr_eq(o),
+                (Some(s), Some(o)) => s == o,
             }
     }
 }
@@ -160,14 +183,17 @@ where
     {
         Self {
             cell: None,
+            cell_phantom: PhantomData,
             port: IdString::new(),
             budget: Delay::new(),
         }
     }
 }
 
-impl<DelayType: DelayTrait, CellType: CellTrait<DelayType>> Default
-    for PortRef<DelayType, CellType>
+impl<DelayType, CellType> Default for PortRef<DelayType, CellType>
+where
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
 {
     fn default() -> Self {
         Self::new()
@@ -175,7 +201,11 @@ impl<DelayType: DelayTrait, CellType: CellTrait<DelayType>> Default
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct NetInfo<DelayType: DelayTrait, CellType: CellTrait<DelayType>> {
+pub struct NetInfo<DelayType, CellType>
+where
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
+{
     arch_net_info: ArchNetInfo,
     name: IdString,
     hierarchy_path: IdString,
@@ -192,7 +222,8 @@ pub struct NetInfo<DelayType: DelayTrait, CellType: CellTrait<DelayType>> {
 
     clk_constr: Box<ClockConstraint<DelayType>>,
 
-    region: Option<Box<Region>>,
+    //    region: Option<Box<Region>>,
+    region: Option<Index>,
 }
 
 impl<DelayType, CellType> NetInfo<DelayType, CellType>
@@ -477,10 +508,25 @@ impl<DelayType: DelayTrait> PseudoCell<DelayType> for RegionPlug {
 }
 
 #[derive(Debug, Clone)]
-pub struct CellInfo<DelayType: DelayTrait, CellType: CellTrait<DelayType>> {
+pub struct CellInfo<DelayType, CellType>
+where
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
+{
     arch_cell_info: ArchCellInfo,
-    context: Option<Box<Context>>,
+    // Lets try using Arena indices for these.
+    //    context: Option<Box<Context>>,
+    //    region: Option<Box<Region>>,
+    //    pseudo_cell: Option<std::rc::Rc<CellType>>,
+    //    rc_self: Weak<Self>,
 
+    // Index to the context within the Context arena.
+    context: Option<Index>,
+    // Index to the region within the Region arena.
+    region: Option<Index>,
+    pseudo_cell: Option<Index>,
+    // Index to this cell in the Arena
+    self_index: Option<Index>,
     name: IdString,
     cell_type: IdString,
     hierarchy_path: IdString,
@@ -495,10 +541,6 @@ pub struct CellInfo<DelayType: DelayTrait, CellType: CellTrait<DelayType>> {
 
     // cell is part of a cluster if != ClusterId
     cluster: ClusterId,
-
-    region: Option<Box<Region>>,
-
-    pseudo_cell: Option<std::rc::Rc<CellType>>,
 }
 
 impl<DelayType, CellType> const PartialEq for CellInfo<DelayType, CellType>
@@ -526,10 +568,16 @@ where
     DelayType: DelayTrait,
     CellType: CellTrait<DelayType>,
 {
-    pub fn new() -> std::rc::Rc<Self> {
-        std::rc::Rc::new(Self {
+    pub fn new(
+        self_arena: &mut Arena<Self>,
+        ctx_arena: &mut Arena<Context>,
+        region_arena: &mut Arena<Region>,
+    ) -> Index {
+        let n = Self {
             arch_cell_info: ArchCellInfo::new(),
-            context: None,
+            context: Some(ctx_arena.insert(Context::new())),
+            region: Some(region_arena.insert(Region::new())),
+            pseudo_cell: None,
             name: IdString::new(),
             cell_type: IdString::new(),
             hierarchy_path: IdString::new(),
@@ -540,9 +588,11 @@ where
             bel: BelId::new(),
             bel_strength: PlaceStrength::new(),
             cluster: IdString::new(),
-            region: None,
-            pseudo_cell: None,
-        })
+            self_index: None,
+        };
+        let index = self_arena.insert(n);
+        self_arena.get_mut(index).unwrap().self_index = Some(index);
+        index
     }
     pub fn add_input(&mut self, name: IdString) {
         self.ports.insert(
@@ -591,9 +641,11 @@ where
     }
 
     // check whether a bel complies with the cell's region constraint
-    pub fn test_region(&self, bel: BelId) -> bool {
+    pub fn test_region(&self, bel: BelId, region_arena: &mut Arena<Region>) -> bool {
         if let Some(region) = &self.region {
-            region.constr_bels || region.bels.contains_key(&bel)
+            let reg = region_arena.get(*region).unwrap();
+            reg.constr_bels ||  reg.bels.contains_key(&bel)
+//            region.constr_bels || region.bels.contains_key(&bel)
         } else {
             true
         }
@@ -603,12 +655,13 @@ where
         self.pseudo_cell.is_some()
     }
 
-    pub fn get_location(&self, _bel: BelId) -> Loc
+    pub fn get_location(&self, _bel: BelId, pcell_arena: &mut Arena<CellType>) -> Loc
     where
         CellType: ~const CellTrait<DelayType> + ~const PseudoCell<DelayType>,
     {
         if let Some(pseudo_cell) = &self.pseudo_cell {
-            pseudo_cell.get_location()
+//            pseudo_cell.get_location()
+        todo!()
         } else {
             assert!(self.bel != BelId::new());
             todo!()
@@ -644,7 +697,8 @@ where
                 }
                 PortType::In | PortType::InOut => {
                     let mut user: PortRef<DelayType, CellType> = PortRef::new();
-//                    user.cell = self.
+                    todo!()
+                    //                    user.cell = self.
                 }
             }
         } else {
