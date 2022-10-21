@@ -8,8 +8,8 @@ use crate::kernel::{
     id_string::IdString,
     timing::{TimingClockingInfo, TimingPortClass},
 };
-use std::collections::BTreeMap;
 use std::collections::btree_map::Entry::Vacant;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 use super::base_types::PlaceStrength;
@@ -169,6 +169,8 @@ pub enum CellError {
     UserIndexIsNone,
     #[error("User wasn't found in arena.")]
     UserNotFound,
+    #[error("Tried to use a Net Index that is None.")]
+    NetIndexIsNone,
 }
 
 impl<DelayType, CellType> CellInfo<DelayType, CellType>
@@ -476,29 +478,52 @@ where
 
     pub fn move_port_bus_to(
         &mut self,
-        _old_port_bus: PortBus,
-        _new_cell: &CellInfo<DelayType, CellType>,
-        _new_port_bus: PortBus,
-        _width: i32,
-    ) {
-        todo!()
+        old_port_bus: PortBus,
+        new_cell: &mut CellInfo<DelayType, CellType>,
+        new_port_bus: PortBus,
+        width: i32,
+        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+    ) -> Result<(), CellError> {
+        for _i in 0..width {
+            // FIXME: correct this after implementing Context.
+            let old_port: IdString = IdString::new();
+            let new_port: IdString = IdString::new();
+            self.move_port_to(old_port, new_cell, new_port, net_arena)?;
+            todo!()
+        }
+        Ok(())
     }
 
-    pub fn copy_port_(
-        &self,
-        _port: IdString,
-        _other: &CellInfo<DelayType, CellType>,
-        _other_port: IdString,
-    ) {
-        todo!()
+    pub fn copy_port_to(
+        &mut self,
+        port: IdString,
+        other: &mut CellInfo<DelayType, CellType>,
+        other_port: IdString,
+        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+    ) -> Result<(), CellError> {
+        let self_port = self.ports.get(&port).ok_or(CellError::PortNotFound)?;
+
+        let mut other_p = other
+            .ports
+            .get_mut(&other_port)
+            .ok_or(CellError::PortNotFound)?;
+        other_p.name = other_port;
+        other_p.port_type = self_port.port_type;
+        other.connect_port(
+            other_port,
+            self_port.net.ok_or(CellError::NetIndexIsNone)?,
+            net_arena,
+        )?;
+        Ok(())
     }
 
     pub fn copy_port_bus_to(
-        &self,
-        _old_port_bus: PortBus,
-        _new_cell: &CellInfo<DelayType, CellType>,
-        _new_port_bus: PortBus,
-        _width: i32,
+        &mut self,
+        old_port_bus: PortBus,
+        new_cell: &mut CellInfo<DelayType, CellType>,
+        new_port_bus: PortBus,
+        width: i32,
+        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
     ) {
         todo!()
     }

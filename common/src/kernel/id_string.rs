@@ -2,23 +2,27 @@ use crate::kernel::base_context::BaseCtx;
 use std::hash::Hash;
 
 #[derive(Debug, Copy, Clone, Eq)]
-pub struct IdString {
+pub struct IdString
+{
     index: u64,
 }
 
-impl const PartialEq for IdString {
+impl const PartialEq for IdString
+{
     fn eq(&self, other: &Self) -> bool {
         self.index == other.index
     }
 }
 
-impl const PartialOrd for IdString {
+impl const PartialOrd for IdString
+{
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.index.cmp(&other.index))
     }
 }
 
-impl const Ord for IdString {
+impl const Ord for IdString
+{
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.index.cmp(&other.index)
     }
@@ -30,7 +34,8 @@ impl Hash for IdString {
     }
 }
 
-impl IdString {
+impl IdString
+{
     pub fn initialize_arch(_ctx: &BaseCtx) {
         todo!()
     }
@@ -91,7 +96,8 @@ impl IdString {
     }
 }
 
-impl Default for IdString {
+impl Default for IdString
+{
     fn default() -> Self {
         Self::new()
     }
@@ -101,13 +107,15 @@ impl Default for IdString {
 #[derive(Debug, Copy, Clone, Eq)]
 pub struct IdPair(IdString, IdString);
 
-impl const PartialEq for IdPair {
+impl const PartialEq for IdPair
+{
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1
     }
 }
 
-impl Hash for IdPair {
+impl Hash for IdPair
+{
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
         self.1.hash(state);
