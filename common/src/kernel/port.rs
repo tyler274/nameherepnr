@@ -1,16 +1,17 @@
-use std::hash::Hash;
+use super::net::UserId;
 use crate::kernel::cell::CellTrait;
-use crate::kernel::delay::{DelayTrait, Delay};
+use crate::kernel::delay::{Delay, DelayTrait};
 use crate::kernel::id_string::IdString;
-use std::marker::PhantomData;
-use thunderdome::{Index, Arena};
 use crate::kernel::net::NetInfo;
+use std::hash::Hash;
+use std::marker::PhantomData;
+use thunderdome::{Arena, Index};
 
 #[derive(Debug, Clone)]
 pub struct PortRef<DelayType, CellType>
 where
-DelayType: DelayTrait,
-CellType: CellTrait<DelayType>,
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
 {
     //    cell: Option<Weak<CellInfo<DelayType, CellType>>>,
     /// An index into the arena of cells leading to the cell that a port is tied to.
@@ -24,43 +25,43 @@ CellType: CellTrait<DelayType>,
 
 impl<DelayType, CellType> PartialEq for PortRef<DelayType, CellType>
 where
-DelayType: DelayTrait,
-CellType: CellTrait<DelayType>,
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
 {
     fn eq(&self, other: &Self) -> bool {
         self.port == other.port
-        && self.budget == other.budget
-        && match (&self.cell, &other.cell) {
-            (None, None) => true,
-            (None, Some(_)) => false,
-            (Some(_), None) => false,
-            (Some(s), Some(o)) => s == o,
-        }
+            && self.budget == other.budget
+            && match (&self.cell, &other.cell) {
+                (None, None) => true,
+                (None, Some(_)) => false,
+                (Some(_), None) => false,
+                (Some(s), Some(o)) => s == o,
+            }
     }
 }
 
 impl<DelayType, CellType> PortRef<DelayType, CellType>
 where
-DelayType: DelayTrait,
-CellType: CellTrait<DelayType>,
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
 {
     pub const fn new() -> Self
     where
-    DelayType: ~const DelayTrait,
+        DelayType: ~const DelayTrait,
     {
         Self {
             cell: None,
-        cell_phantom: PhantomData,
-        port: IdString::new(),
-        budget: Delay::new(),
+            cell_phantom: PhantomData,
+            port: IdString::new(),
+            budget: Delay::new(),
         }
     }
 }
 
 impl<DelayType, CellType> Default for PortRef<DelayType, CellType>
 where
-DelayType: DelayTrait,
-CellType: CellTrait<DelayType>,
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
 {
     fn default() -> Self {
         Self::new()
@@ -89,21 +90,21 @@ impl const PartialEq for PortType {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PortInfo<DelayType, CellType>
 where
-DelayType: DelayTrait,
-CellType: CellTrait<DelayType>,
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
 {
     pub name: IdString,
     //    net: Box<NetInfo<DelayType, CellType>>,
     pub net: Option<Index>,
     pub _net_phantom: PhantomData<NetInfo<DelayType, CellType>>,
     pub port_type: PortType,
-    pub user_index: usize,
+    pub user_index: Option<UserId>,
 }
 
 impl<DelayType, CellType> PortInfo<DelayType, CellType>
 where
-DelayType: DelayTrait,
-CellType: CellTrait<DelayType>,
+    DelayType: DelayTrait,
+    CellType: CellTrait<DelayType>,
 {
     pub fn new() -> Self {
         Self {
@@ -111,7 +112,7 @@ CellType: CellTrait<DelayType>,
             //            net: Box::new(NetInfo::new()),
             net: None,
             port_type: PortType::In,
-            user_index: 0,
+            user_index: None,
             _net_phantom: PhantomData,
         }
     }
@@ -134,11 +135,11 @@ CellType: CellTrait<DelayType>,
 }
 
 impl<DelayType: DelayTrait, CellType: CellTrait<DelayType>> Default
-for PortInfo<DelayType, CellType>
+    for PortInfo<DelayType, CellType>
 {
     fn default() -> Self
     where
-    DelayType: ~const DelayTrait,
+        DelayType: ~const DelayTrait,
     {
         Self::new()
     }

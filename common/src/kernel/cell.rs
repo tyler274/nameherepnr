@@ -159,6 +159,8 @@ pub enum CellError {
     DriverCellInUse,
     #[error("Net Index not found.")]
     NetIndexNotFound,
+    #[error("Port not found.")]
+    PortNotFound,
 }
 
 impl<DelayType, CellType> CellInfo<DelayType, CellType>
@@ -322,7 +324,7 @@ where
                     let mut user: PortRef<DelayType, CellType> = PortRef::new();
                     user.cell = self.self_index;
                     user.port = port_name;
-                    port.user_index = passed_net.users.push_and_get_key(user);
+                    port.user_index = Some(passed_net.users.push_and_get_key(user));
                     Ok(())
                 }
             }
@@ -331,8 +333,30 @@ where
         }
     }
 
-    pub fn disconnect_port(&mut self, _port: IdString) {
-        todo!()
+    pub fn disconnect_port(
+        &mut self,
+        port_name: IdString,
+        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+    ) -> Result<(), CellError> {
+        if !self.ports.contains_key(&port_name) {
+            let mut port = self
+                .ports
+                .get_mut(&port_name)
+                .ok_or(CellError::PortNotFound)?;
+            if let Some(net_index) = port.net {
+                let mut net = net_arena
+                    .get_mut(net_index)
+                    .ok_or(CellError::NetIndexNotFound)?;
+                if let Some(user_idx) = port.user_index {
+                    net.users.remove(user_idx);
+                }
+                if net.driver.cell == self.self_index && net.driver.port == port_name {
+                    net.driver.cell = None;
+                }
+                port.net = None;
+            }
+        }
+        Ok(())
     }
 
     pub fn connect_ports(

@@ -3,6 +3,9 @@ use crate::kernel::id_string::IdString;
 use hashers::oz::DJB2Hasher;
 use std::hash::{BuildHasher, BuildHasherDefault};
 use std::hash::{Hash, Hasher};
+use thunderdome::Index;
+
+pub trait BelIdTrait {}
 
 #[derive(Debug, Copy, Clone, Eq)]
 pub struct BelId {
@@ -385,9 +388,6 @@ impl const PartialEq for ArchNetInfo {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct NetInfo;
-
 #[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct LcInfo {
     dff_enable: bool,
@@ -395,9 +395,12 @@ pub struct LcInfo {
     neg_clk: bool,
     input_count: i32,
     lut_input_mask: u32,
-    clk: Box<NetInfo>,
-    cen: Box<NetInfo>,
-    sr: Box<NetInfo>,
+    //    clk: Box<NetInfo>,
+    //    cen: Box<NetInfo>,
+    //    sr: Box<NetInfo>,
+    clk: Index,
+    cen: Index,
+    srd: Index,
 }
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]

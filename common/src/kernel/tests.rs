@@ -15,8 +15,8 @@ fn delay_add() {
 #[test]
 fn delay_sub() {
     use delay::Delay;
-    let left = 420;
-    let right = 42;
+    let left = 42;
+    let right = 420;
 
     let lhs = Delay::with_delay(left);
     let rhs = Delay::with_delay(right);

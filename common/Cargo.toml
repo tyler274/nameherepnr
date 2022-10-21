@@ -5,6 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[dev-dependencies]
+criterion = "0.3.6"
+
 [dependencies]
 log = "0.4"
 hashers = "1.0.1"
@@ -16,4 +19,4 @@ thunderdome = "0.6.0"
 rand = "0.8.5"
 #indextree = "4.5.0"
 #num-traits = "0.2.15"
-#derive_more = "0.99.17"
+derive_more = "0.99.17"

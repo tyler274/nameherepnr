@@ -1,7 +1,7 @@
 use bitvec::vec::BitVec;
 use std::fmt::Display;
 
-/// https://www.chipverify.com/verilog/verilog-data-types
+/// https://web.archive.org/web/20220122134908/https://www.chipverify.com/verilog/verilog-data-types
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Eq, Ord, Hash)]
 #[repr(u8)]
 pub enum State {

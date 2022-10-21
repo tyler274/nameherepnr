@@ -5,9 +5,13 @@ use crate::{
         region::Region, timing::ClockConstraint, types::PipMap,
     },
 };
+use derive_more::{From, Into};
 use std::collections::BTreeMap;
 use thunderdome::{Arena, Index};
 use typed_index_collections::TiVec;
+
+#[derive(Clone, Copy, Debug, From, Into, Eq, PartialEq, Ord, PartialOrd)]
+pub struct UserId(usize);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NetInfo<DelayType, CellType>
@@ -21,7 +25,8 @@ where
     udata: i32,
 
     pub driver: PortRef<DelayType, CellType>,
-    pub users: TiVec<usize, PortRef<DelayType, CellType>>,
+    // TODO: Measure performance/check implementation of TiVEc, see if its better than O(n) on entry deletion.
+    pub users: TiVec<UserId, PortRef<DelayType, CellType>>,
     attrs: BTreeMap<IdString, Property>,
 
     // wire -> uphill_pip
