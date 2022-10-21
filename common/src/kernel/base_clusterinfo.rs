@@ -14,6 +14,7 @@ pub struct BaseClusterInfo {
     constr_abs_z: bool, // parent.z := 0
 }
 
+
 impl BaseClusterInfo {
     pub const fn new() -> Self {
         Self {

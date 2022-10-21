@@ -20,9 +20,10 @@ use super::property::Property;
 use super::region::Region;
 
 #[const_trait]
-pub trait PseudoCell<DelayType>
+pub trait PseudoCell<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
+    Self: Debug,
 {
     fn get_location(&self) -> Loc {
         Loc::origin()
@@ -30,33 +31,29 @@ where
     fn get_port_wire(&self, _port: IdString) -> Option<WireId> {
         None
     }
-    fn get_delay(
-        &self,
-        _from_port: IdString,
-        _to_port: IdString,
-        _delay: &DelayQuad<DelayType>,
-    ) -> bool {
+    fn get_delay(&self, _from_port: IdString, _to_port: IdString, _delay: &DelayQuad<D>) -> bool {
         false
     }
     fn get_port_timing_class(&self, _port: IdString, _clock_info_count: &u64) -> TimingPortClass {
         TimingPortClass::new()
     }
-    fn get_port_clocking_info(&self, _port: IdString, _index: u64) -> TimingClockingInfo<DelayType>
+    fn get_port_clocking_info(&self, _port: IdString, _index: u64) -> TimingClockingInfo<D>
     where
-        DelayType: ~const DelayTrait,
+        D: ~const DelayTrait,
     {
         TimingClockingInfo::new()
     }
 }
 
 // Unstable trait bounds aliasing, to reduce code duplication.
-#[const_trait]
-pub trait CellTrait<DelayType: DelayTrait>
-where
-    Self: Debug + PseudoCell<DelayType> + PartialEq + Clone,
-{
-}
+//#[const_trait]
+//pub trait CellTrait<DelayType: DelayTrait>
+//where
+//    Self: Debug + PseudoCell<DelayType> + PartialEq + Clone,
+//{
+//}
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegionPlug {
     port_wires: BTreeMap<IdString, WireId>,
     loc: Loc,
@@ -103,11 +100,10 @@ impl<DelayType: DelayTrait> PseudoCell<DelayType> for RegionPlug {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct CellInfo<D, C>
+#[derive(Debug)]
+pub struct CellInfo<D>
 where
     D: DelayTrait,
-    C: CellTrait<D>,
 {
     _arch_cell_info: ArchCellInfo,
     // Lets try using Arena indices for these.
@@ -115,7 +111,6 @@ where
     //    region: Option<Box<Region>>,
     //    pseudo_cell: Option<std::rc::Rc<CellType>>,
     //    rc_self: Weak<Self>,
-    _marker_c: core::marker::PhantomData<C>,
     _marker_d: core::marker::PhantomData<D>,
 
     // Index to the context within the Context arena.
@@ -123,7 +118,7 @@ where
     // Index to the region within the Region arena.
     region: Option<Index>,
     // TODO: What is a pseudo cell really?
-    pseudo_cell: Option<Index>,
+    pseudo_cell: Option<Box<dyn PseudoCell<D>>>,
     // Index to this cell in the Arena
     self_index: Option<Index>,
     _name: IdString,
@@ -142,17 +137,18 @@ where
     _cluster: ClusterId,
 }
 
-impl<DelayType, CellType> const PartialEq for CellInfo<DelayType, CellType>
-where
-    DelayType: DelayTrait,
-    CellType: CellTrait<DelayType>,
-{
+impl<D> Eq for CellInfo<D> where D: DelayTrait {
+    
+}
+
+impl<D> PartialEq for CellInfo<D> where D: DelayTrait {
     fn eq(&self, other: &Self) -> bool {
-        self == other
+        todo!();
+        self._arch_cell_info == other._arch_cell_info
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Eq, PartialEq, Copy, Clone)]
 pub enum CellError {
     #[error("Invalid port type for connect port.")]
     InvalidConnectPortType,
@@ -175,10 +171,9 @@ pub enum CellError {
     NetIndexIsNone,
 }
 
-impl<DelayType, CellType> CellInfo<DelayType, CellType>
+impl<D> CellInfo<D>
 where
-    DelayType: DelayTrait,
-    CellType: CellTrait<DelayType>,
+    D: DelayTrait,
 {
     pub fn new() -> Self {
         Self {
@@ -197,7 +192,7 @@ where
             _bel_strength: PlaceStrength::new(),
             _cluster: IdString::new(),
             self_index: None,
-            _marker_c: std::marker::PhantomData,
+            //            _marker_c: std::marker::PhantomData,
             _marker_d: std::marker::PhantomData,
         }
     }
@@ -279,10 +274,7 @@ where
         self.pseudo_cell.is_some()
     }
 
-    pub fn get_location(&self, _bel: BelId, _pcell_arena: &mut Arena<CellType>) -> Loc
-    where
-        CellType: ~const CellTrait<DelayType> + ~const PseudoCell<DelayType>,
-    {
+    pub fn get_location(&self, _bel: BelId, _pcell_arena: &mut Arena<CellInfo<D>>) -> Loc {
         if let Some(_pseudo_cell) = &self.pseudo_cell {
             //            pseudo_cell.get_location()
             todo!()
@@ -307,7 +299,7 @@ where
         port_name: IdString,
         //        net: &NetInfo<DelayType, CellType>,
         net: Index,
-        net_arena: &mut Arena<NetInfo<DelayType>>,
+        net_arena: &mut Arena<NetInfo<D>>,
     ) -> Result<(), CellError> {
         // Get the port from our btree mapping that matches the passed in port_name value.
         // If there's nothing there just return the default value.
@@ -335,7 +327,7 @@ where
                     }
                 }
                 PortType::In | PortType::InOut => {
-                    let mut user: PortRef<DelayType> = PortRef::new();
+                    let mut user: PortRef<D> = PortRef::new();
                     user.cell = self.self_index;
                     user.port = port_name;
                     port.user_index = Some(passed_net.users.push_and_get_key(user));
@@ -350,7 +342,7 @@ where
     pub fn disconnect_port(
         &mut self,
         port_name: IdString,
-        net_arena: &mut Arena<NetInfo<DelayType>>,
+        net_arena: &mut Arena<NetInfo<D>>,
     ) -> Result<(), CellError> {
         if !self.ports.contains_key(&port_name) {
             let mut port = self
@@ -376,9 +368,9 @@ where
     pub fn connect_ports(
         &mut self,
         port: IdString,
-        other: &mut CellInfo<DelayType, CellType>,
+        other: &mut CellInfo<D>,
         other_port: IdString,
-        net_arena: &mut Arena<NetInfo<DelayType>>,
+        net_arena: &mut Arena<NetInfo<D>>,
     ) -> Result<(), CellError> {
         let port_1 = self.ports.get_mut(&port).ok_or(CellError::PortNotFound)?;
         if let Some(p1_net) = port_1.net {
@@ -395,9 +387,9 @@ where
     pub fn move_port_to(
         &mut self,
         port: IdString,
-        other: &mut CellInfo<DelayType, CellType>,
+        other: &mut CellInfo<D>,
         other_port: IdString,
-        net_arena: &mut Arena<NetInfo<DelayType>>,
+        net_arena: &mut Arena<NetInfo<D>>,
     ) -> Result<(), CellError> {
         let mut old = self.ports.get_mut(&port).ok_or(CellError::PortNotFound)?;
         // Create port on the replacement cell if it doesn't already exist
@@ -450,7 +442,7 @@ where
         &mut self,
         old_name: IdString,
         new_name: IdString,
-        net_arena: &mut Arena<NetInfo<DelayType>>,
+        net_arena: &mut Arena<NetInfo<D>>,
     ) -> Result<(), CellError> {
         let mut old = self
             .ports
@@ -483,10 +475,10 @@ where
     pub fn move_port_bus_to(
         &mut self,
         old_port_bus: PortBus,
-        new_cell: &mut CellInfo<DelayType, CellType>,
+        new_cell: &mut CellInfo<D>,
         new_port_bus: PortBus,
         width: i32,
-        net_arena: &mut Arena<NetInfo<DelayType>>,
+        net_arena: &mut Arena<NetInfo<D>>,
     ) -> Result<(), CellError> {
         for _i in 0..width {
             // FIXME: correct this after implementing Context.
@@ -501,9 +493,9 @@ where
     pub fn copy_port_to(
         &mut self,
         port: IdString,
-        other: &mut CellInfo<DelayType, CellType>,
+        other: &mut CellInfo<D>,
         other_port: IdString,
-        net_arena: &mut Arena<NetInfo<DelayType>>,
+        net_arena: &mut Arena<NetInfo<D>>,
     ) -> Result<(), CellError> {
         let self_port = self.ports.get(&port).ok_or(CellError::PortNotFound)?;
 
@@ -524,19 +516,18 @@ where
     pub fn copy_port_bus_to(
         &mut self,
         old_port_bus: PortBus,
-        new_cell: &mut CellInfo<DelayType, CellType>,
+        new_cell: &mut CellInfo<D>,
         new_port_bus: PortBus,
         width: i32,
-        net_arena: &mut Arena<NetInfo<DelayType>>,
+        net_arena: &mut Arena<NetInfo<D>>,
     ) {
         todo!()
     }
 }
 
-impl<DelayType, CellType> Default for CellInfo<DelayType, CellType>
+impl<DelayType> Default for CellInfo<DelayType>
 where
     DelayType: DelayTrait,
-    CellType: CellTrait<DelayType>,
 {
     fn default() -> Self {
         Self::new()

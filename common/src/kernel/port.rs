@@ -1,5 +1,4 @@
 use super::net::UserId;
-use crate::kernel::cell::CellTrait;
 use crate::kernel::delay::{Delay, DelayTrait};
 use crate::kernel::id_string::IdString;
 use crate::kernel::net::NetInfo;
@@ -85,7 +84,7 @@ impl const PartialEq for PortType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PortInfo
 //<D>
 //where

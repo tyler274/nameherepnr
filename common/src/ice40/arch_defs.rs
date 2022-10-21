@@ -412,14 +412,26 @@ pub struct IoInfo {
     // TODO: clk packing checks...
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq)]
 pub struct GbInfo {
     for_pad_in: bool,
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+impl const PartialEq for GbInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.for_pad_in == other.for_pad_in
+    }
+}
+
+#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq)]
 pub struct LedInfo {
     led_cur_connected: bool,
+}
+
+impl const PartialEq for LedInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.led_cur_connected == other.led_cur_connected
+    }
 }
 
 // TODO: Does this need to be a C style Union? repr(C)?
@@ -430,6 +442,29 @@ pub enum CellEnum {
     Gb(GbInfo),
     Led(LedInfo),
 }
+
+//impl const PartialEq for CellEnum {
+//    fn eq(&self, other: &Self) -> bool {
+//        match (self, other) {
+//            (CellEnum::Lc(_), CellEnum::Lc(_)) => todo!(),
+//            (CellEnum::Lc(_), CellEnum::Io(_)) => todo!(),
+//            (CellEnum::Lc(_), CellEnum::Gb(_)) => todo!(),
+//            (CellEnum::Lc(_), CellEnum::Led(_)) => todo!(),
+//            (CellEnum::Io(_), CellEnum::Lc(_)) => todo!(),
+//            (CellEnum::Io(_), CellEnum::Io(_)) => todo!(),
+//            (CellEnum::Io(_), CellEnum::Gb(_)) => todo!(),
+//            (CellEnum::Io(_), CellEnum::Led(_)) => todo!(),
+//            (CellEnum::Gb(_), CellEnum::Lc(_)) => todo!(),
+//            (CellEnum::Gb(_), CellEnum::Io(_)) => todo!(),
+//            (CellEnum::Gb(_), CellEnum::Gb(_)) => todo!(),
+//            (CellEnum::Gb(_), CellEnum::Led(_)) => todo!(),
+//            (CellEnum::Led(_), CellEnum::Lc(_)) => todo!(),
+//            (CellEnum::Led(_), CellEnum::Io(_)) => todo!(),
+//            (CellEnum::Led(_), CellEnum::Gb(_)) => todo!(),
+//            (CellEnum::Led(_), CellEnum::Led(_)) => todo!(),
+//        }
+//    }
+//}
 
 // TODO: Does this need to be repr(C)?
 #[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]

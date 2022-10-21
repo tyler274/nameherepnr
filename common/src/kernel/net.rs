@@ -1,7 +1,7 @@
 use crate::{
     ice40::arch_defs::{ArchNetInfo, WireId},
     kernel::{
-        cell::CellTrait, delay::DelayTrait, id_string::IdString, port::PortRef, property::Property,
+        delay::DelayTrait, id_string::IdString, port::PortRef, property::Property,
         region::Region, timing::ClockConstraint, types::PipMap,
     },
 };
