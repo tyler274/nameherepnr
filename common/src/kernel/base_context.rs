@@ -1,4 +1,4 @@
-use super::cell::{CellTrait, CellInfo};
+use super::cell::CellInfo;
 use super::delay::DelayTrait;
 use super::net::NetInfo;
 use super::region::Region;
@@ -36,7 +36,7 @@ pub struct BaseCtx<D: DelayTrait> {
     //    pub nets: BTreeMap<IdString, Index>,
     //    pub cells: BTreeMap<IdString, Index>,
     pub nets: Arena<NetInfo<D>, NetInfo<D>>,
-//    pub cells: Arena<Box<CellInfo<D, dyn CellTrait<D>>>>,
+    pub cells: Arena<CellInfo<D>, CellInfo<D>>,
 
     // Hierarchical (non-leaf) cells by full path
     pub hierarchy: BTreeMap<IdString, HierarchicalCell>,
@@ -87,7 +87,7 @@ where
             log_strs: StaticRb::default(),
             settings: BTreeMap::new(),
             nets: Arena::new(),
-//            cells: Arena::new(),
+            cells: Arena::new(),
             hierarchy: BTreeMap::new(),
             top_module: IdString::new(),
             net_aliases: todo!(),
