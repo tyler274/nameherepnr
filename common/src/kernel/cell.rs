@@ -161,6 +161,13 @@ pub enum CellError {
     NetIndexNotFound,
     #[error("Port not found.")]
     PortNotFound,
+    // Why is it invalid?
+    #[error("Moving and InOut port is invalid.")]
+    PortInOutMoveInvalid,
+    #[error("Tried to use a User Index that is None.")]
+    UserIndexIsNone,
+    #[error("User wasn't found in arena.")]
+    UserNotFound,
 }
 
 impl<DelayType, CellType> CellInfo<DelayType, CellType>
@@ -361,20 +368,78 @@ where
 
     pub fn connect_ports(
         &mut self,
-        _port: IdString,
-        _other: &CellInfo<DelayType, CellType>,
-        _other_port: IdString,
-    ) {
-        todo!()
+        port: IdString,
+        other: &mut CellInfo<DelayType, CellType>,
+        other_port: IdString,
+        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+    ) -> Result<(), CellError> {
+        let port_1 = self.ports.get_mut(&port).ok_or(CellError::PortNotFound)?;
+        if let Some(p1_net) = port_1.net {
+            other.connect_port(other_port, p1_net, net_arena)?
+        } else {
+            // No net on port1; need to create one
+            todo!()
+            //            let p1_net = self.context.create_net(self.context.id(self.name.to_string(self.context) + "$conn$" + port.to_string(self.context);
+        }
+
+        Ok(())
     }
 
     pub fn move_port_to(
         &mut self,
-        _port: IdString,
-        _other: &CellInfo<DelayType, CellType>,
-        _other_port: IdString,
-    ) {
-        todo!()
+        port: IdString,
+        other: &mut CellInfo<DelayType, CellType>,
+        other_port: IdString,
+        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+    ) -> Result<(), CellError> {
+        let mut old = self.ports.get_mut(&port).ok_or(CellError::PortNotFound)?;
+        // Create port on the replacement cell if it doesn't already exist
+        if !other.ports.contains_key(&other_port) {
+            other.ports.insert(
+                other_port,
+                PortInfo {
+                    name: other_port,
+                    port_type: old.port_type,
+                    ..Default::default()
+                },
+            );
+        }
+
+        let mut rep = other
+            .ports
+            .get_mut(&other_port)
+            .ok_or(CellError::PortNotFound)?;
+
+        assert!(old.port_type == rep.port_type);
+
+        rep.net = old.net;
+        rep.user_index = old.user_index;
+        old.net = None;
+        old.user_index = None;
+        if let Some(r_net_id) = rep.net {
+            let mut r_net = net_arena
+                .get_mut(r_net_id)
+                .ok_or(CellError::NetIndexNotFound)?;
+            match rep.port_type {
+                PortType::Out => {
+                    r_net.driver.cell = other.self_index;
+                    r_net.driver.port = other_port;
+                    Ok(())
+                }
+                PortType::In => {
+                    let mut load = r_net
+                        .users
+                        .get_mut(rep.user_index.ok_or(CellError::UserIndexIsNone)?)
+                        .ok_or(CellError::UserNotFound)?;
+                    load.cell = other.self_index;
+                    load.port = other_port;
+                    Ok(())
+                }
+                PortType::InOut => Err(CellError::PortInOutMoveInvalid),
+            }
+        } else {
+            Ok(())
+        }
     }
 
     pub fn rename_port(&mut self, _old_name: IdString, _new_name: IdString) {
