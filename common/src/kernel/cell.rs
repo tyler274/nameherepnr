@@ -9,6 +9,7 @@ use crate::kernel::{
     timing::{TimingClockingInfo, TimingPortClass},
 };
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry::Vacant;
 use std::fmt::Debug;
 
 use super::base_types::PlaceStrength;
@@ -394,15 +395,12 @@ where
     ) -> Result<(), CellError> {
         let mut old = self.ports.get_mut(&port).ok_or(CellError::PortNotFound)?;
         // Create port on the replacement cell if it doesn't already exist
-        if !other.ports.contains_key(&other_port) {
-            other.ports.insert(
-                other_port,
-                PortInfo {
-                    name: other_port,
-                    port_type: old.port_type,
-                    ..Default::default()
-                },
-            );
+        if let Vacant(e) = other.ports.entry(other_port) {
+            e.insert(PortInfo {
+                name: other_port,
+                port_type: old.port_type,
+                ..Default::default()
+            });
         }
 
         let mut rep = other
@@ -442,8 +440,38 @@ where
         }
     }
 
-    pub fn rename_port(&mut self, _old_name: IdString, _new_name: IdString) {
-        todo!()
+    pub fn rename_port(
+        &mut self,
+        old_name: IdString,
+        new_name: IdString,
+        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+    ) -> Result<(), CellError> {
+        let mut old = self
+            .ports
+            .get(&old_name)
+            .ok_or(CellError::PortNotFound)?
+            .clone();
+        if let Some(old_net_index) = old.net {
+            let mut old_net = net_arena
+                .get_mut(old_net_index)
+                .ok_or(CellError::NetIndexNotFound)?;
+            if old_net.driver.cell == self.self_index && old_net.driver.port == old_name {
+                old_net.driver.port = new_name;
+            }
+            if let Some(user_index) = old.user_index {
+                let mut user = old_net
+                    .users
+                    .get_mut(user_index)
+                    .ok_or(CellError::UserNotFound)?;
+                user.port = new_name;
+            }
+        }
+        self.ports.remove(&old_name);
+        old.name = new_name;
+        self.ports
+            .insert(new_name, old)
+            .ok_or(CellError::PortAlreadyConnected)?;
+        Ok(())
     }
 
     pub fn move_port_bus_to(
