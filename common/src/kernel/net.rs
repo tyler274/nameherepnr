@@ -13,20 +13,19 @@ use typed_index_collections::TiVec;
 #[derive(Clone, Copy, Debug, From, Into, Eq, PartialEq, Ord, PartialOrd)]
 pub struct UserId(usize);
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct NetInfo<DelayType, CellType>
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NetInfo<DelayType>
 where
     DelayType: DelayTrait,
-    CellType: CellTrait<DelayType>,
 {
     arch_net_info: ArchNetInfo,
     name: IdString,
     hierarchy_path: IdString,
     udata: i32,
 
-    pub driver: PortRef<DelayType, CellType>,
+    pub driver: PortRef<DelayType>,
     // TODO: Measure performance/check implementation of TiVEc, see if its better than O(n) on entry deletion.
-    pub users: TiVec<UserId, PortRef<DelayType, CellType>>,
+    pub users: TiVec<UserId, PortRef<DelayType>>,
     attrs: BTreeMap<IdString, Property>,
 
     // wire -> uphill_pip
@@ -40,10 +39,9 @@ where
     region: Option<Index>,
 }
 
-impl<DelayType, CellType> NetInfo<DelayType, CellType>
+impl<DelayType> NetInfo<DelayType>
 where
     DelayType: DelayTrait,
-    CellType: CellTrait<DelayType>,
 {
     pub fn new() -> Self {
         Self {
@@ -79,10 +77,9 @@ where
     }
 }
 
-impl<DelayType, CellType> Default for NetInfo<DelayType, CellType>
+impl<DelayType> Default for NetInfo<DelayType>
 where
     DelayType: DelayTrait,
-    CellType: CellTrait<DelayType>,
 {
     fn default() -> Self {
         Self::new()

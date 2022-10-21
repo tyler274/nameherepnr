@@ -1,6 +1,8 @@
 use crate::kernel::base_context::BaseCtx;
 use std::hash::Hash;
 
+use super::delay::DelayTrait;
+
 #[derive(Debug, Copy, Clone, Eq)]
 pub struct IdString
 {
@@ -34,12 +36,11 @@ impl Hash for IdString {
     }
 }
 
-impl IdString
-{
-    pub fn initialize_arch(_ctx: &BaseCtx) {
+impl IdString {
+    pub fn initialize_arch<D: DelayTrait>(_ctx: &BaseCtx<D>) {
         todo!()
     }
-    pub fn initialize_add(_ctx: &BaseCtx, _s: &str, _idx: u64) {
+    pub fn initialize_add<D: DelayTrait>(_ctx: &BaseCtx<D>, _s: &str, _idx: u64) {
         todo!()
     }
     pub const fn new() -> Self {
@@ -50,17 +51,17 @@ impl IdString
         x.index = index;
         x
     }
-    pub fn set(&mut self, _ctx: &BaseCtx, _s: &str) {
+    pub fn set<D: DelayTrait>(&mut self, _ctx: &BaseCtx<D>, _s: &str) {
         todo!()
     }
 
-    pub fn with_ctx_str(ctx: &BaseCtx, s: &str) -> Self {
+    pub fn with_ctx_str<D: DelayTrait>(ctx: &BaseCtx<D>, s: &str) -> Self {
         let mut x = Self::new();
         x.set(ctx, s);
         x
     }
 
-    pub fn to_string(&self, _ctx: &BaseCtx) -> String {
+    pub fn to_string<D: DelayTrait>(&self, _ctx: &BaseCtx<D>) -> String {
         todo!()
         //        ctx.idstring_idx_to_str.at(self.index)
     }

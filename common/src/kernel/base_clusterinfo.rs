@@ -1,5 +1,8 @@
 #[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct CellInfo;
+
+//use super::cell::CellInfo;
+
 // The 'legacy' cluster data, used for existing arches and to provide a basic implementation for arches without complex
 // clustering requirements
 #[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]

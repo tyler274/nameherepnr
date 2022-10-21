@@ -104,10 +104,10 @@ impl<DelayType: DelayTrait> PseudoCell<DelayType> for RegionPlug {
 }
 
 #[derive(Debug, Clone)]
-pub struct CellInfo<DelayType, CellType>
+pub struct CellInfo<D, C>
 where
-    DelayType: DelayTrait,
-    CellType: CellTrait<DelayType>,
+    D: DelayTrait,
+    C: CellTrait<D>,
 {
     _arch_cell_info: ArchCellInfo,
     // Lets try using Arena indices for these.
@@ -115,6 +115,8 @@ where
     //    region: Option<Box<Region>>,
     //    pseudo_cell: Option<std::rc::Rc<CellType>>,
     //    rc_self: Weak<Self>,
+    _marker_c: core::marker::PhantomData<C>,
+    _marker_d: core::marker::PhantomData<D>,
 
     // Index to the context within the Context arena.
     _context: Option<Index>,
@@ -129,7 +131,7 @@ where
     _hierarchy_path: IdString,
     _udata: i32,
 
-    ports: BTreeMap<IdString, PortInfo<DelayType, CellType>>,
+    ports: BTreeMap<IdString, PortInfo>,
     attributes: BTreeMap<IdString, Property>,
     parameters: BTreeMap<IdString, Property>,
 
@@ -195,6 +197,8 @@ where
             _bel_strength: PlaceStrength::new(),
             _cluster: IdString::new(),
             self_index: None,
+            _marker_c: std::marker::PhantomData,
+            _marker_d: std::marker::PhantomData,
         }
     }
     pub fn with_arena(
@@ -303,7 +307,7 @@ where
         port_name: IdString,
         //        net: &NetInfo<DelayType, CellType>,
         net: Index,
-        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+        net_arena: &mut Arena<NetInfo<DelayType>>,
     ) -> Result<(), CellError> {
         // Get the port from our btree mapping that matches the passed in port_name value.
         // If there's nothing there just return the default value.
@@ -331,7 +335,7 @@ where
                     }
                 }
                 PortType::In | PortType::InOut => {
-                    let mut user: PortRef<DelayType, CellType> = PortRef::new();
+                    let mut user: PortRef<DelayType> = PortRef::new();
                     user.cell = self.self_index;
                     user.port = port_name;
                     port.user_index = Some(passed_net.users.push_and_get_key(user));
@@ -346,7 +350,7 @@ where
     pub fn disconnect_port(
         &mut self,
         port_name: IdString,
-        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+        net_arena: &mut Arena<NetInfo<DelayType>>,
     ) -> Result<(), CellError> {
         if !self.ports.contains_key(&port_name) {
             let mut port = self
@@ -374,7 +378,7 @@ where
         port: IdString,
         other: &mut CellInfo<DelayType, CellType>,
         other_port: IdString,
-        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+        net_arena: &mut Arena<NetInfo<DelayType>>,
     ) -> Result<(), CellError> {
         let port_1 = self.ports.get_mut(&port).ok_or(CellError::PortNotFound)?;
         if let Some(p1_net) = port_1.net {
@@ -393,7 +397,7 @@ where
         port: IdString,
         other: &mut CellInfo<DelayType, CellType>,
         other_port: IdString,
-        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+        net_arena: &mut Arena<NetInfo<DelayType>>,
     ) -> Result<(), CellError> {
         let mut old = self.ports.get_mut(&port).ok_or(CellError::PortNotFound)?;
         // Create port on the replacement cell if it doesn't already exist
@@ -446,7 +450,7 @@ where
         &mut self,
         old_name: IdString,
         new_name: IdString,
-        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+        net_arena: &mut Arena<NetInfo<DelayType>>,
     ) -> Result<(), CellError> {
         let mut old = self
             .ports
@@ -482,7 +486,7 @@ where
         new_cell: &mut CellInfo<DelayType, CellType>,
         new_port_bus: PortBus,
         width: i32,
-        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+        net_arena: &mut Arena<NetInfo<DelayType>>,
     ) -> Result<(), CellError> {
         for _i in 0..width {
             // FIXME: correct this after implementing Context.
@@ -499,7 +503,7 @@ where
         port: IdString,
         other: &mut CellInfo<DelayType, CellType>,
         other_port: IdString,
-        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+        net_arena: &mut Arena<NetInfo<DelayType>>,
     ) -> Result<(), CellError> {
         let self_port = self.ports.get(&port).ok_or(CellError::PortNotFound)?;
 
@@ -523,7 +527,7 @@ where
         new_cell: &mut CellInfo<DelayType, CellType>,
         new_port_bus: PortBus,
         width: i32,
-        net_arena: &mut Arena<NetInfo<DelayType, CellType>>,
+        net_arena: &mut Arena<NetInfo<DelayType>>,
     ) {
         todo!()
     }
