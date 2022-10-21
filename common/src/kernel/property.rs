@@ -1,14 +1,18 @@
 use bitvec::vec::BitVec;
 use std::fmt::Display;
 
+/// https://www.chipverify.com/verilog/verilog-data-types
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Eq, Ord, Hash)]
 #[repr(u8)]
 pub enum State {
-    // Defined values are one of the two below.
+    /// 0    represents a logic zero, or a false condition
     S0 = b'0',
+    /// x    represents an unknown logic value (can be zero or one)
     S1 = b'1',
     // These are values that may show up in undefined.
+    /// x    represents an unknown logic value (can be zero or one)
     Sx = b'x',
+    /// z    represents a high-impedance state
     Sz = b'z',
 }
 
