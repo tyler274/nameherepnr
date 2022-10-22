@@ -1,6 +1,8 @@
-use super::cell::CellInfo;
+use super::cell::{CellInfo, PseudoCell};
+use super::context::Context;
 use super::delay::DelayTrait;
 use super::net::NetInfo;
+use super::port::PortInfo;
 use super::region::Region;
 use super::timing::TimingResult;
 use super::{cell::HierarchicalCell, id_string::IdString, property::Property};
@@ -37,6 +39,7 @@ pub struct BaseCtx<D: DelayTrait> {
     //    pub cells: BTreeMap<IdString, Index>,
     pub nets: Arena<NetInfo<D>, NetInfo<D>>,
     pub cells: Arena<CellInfo<D>, CellInfo<D>>,
+    pub(crate) pseudo_cells: Arena<Box<dyn PseudoCell<D>>>,
 
     // Hierarchical (non-leaf) cells by full path
     pub hierarchy: BTreeMap<IdString, HierarchicalCell>,
@@ -48,9 +51,9 @@ pub struct BaseCtx<D: DelayTrait> {
 
     // Top-level ports
     // Index is for PortInfo(s).
-    ports: BTreeMap<IdString, Index>,
+    ports: BTreeMap<IdString, Index<PortInfo<D>>>,
     // The Index is for CellInfo(s).
-    port_cells: BTreeMap<IdString, Index>,
+    port_cells: BTreeMap<IdString, Index<CellInfo<D>>>,
 
     // Floorplanning regions
     // The Index maps to Region(s), unique_ptrs in nextpnr
@@ -64,7 +67,7 @@ pub struct BaseCtx<D: DelayTrait> {
     timing_result: TimingResult<D>,
 
     // The Index here has a type of of Context
-    as_context: Option<Index>,
+    as_context: Option<Index<Context>>,
 
     // Has the frontend loaded a design?
     design_loaded: bool,
@@ -88,21 +91,22 @@ where
             settings: BTreeMap::new(),
             nets: Arena::new(),
             cells: Arena::new(),
+            pseudo_cells: Arena::new(),
             hierarchy: BTreeMap::new(),
             top_module: IdString::new(),
-            net_aliases: todo!(),
-            ports: todo!(),
-            port_cells: todo!(),
-            region: todo!(),
-            attributes: todo!(),
-            timing_result: todo!(),
-            as_context: todo!(),
+            net_aliases: BTreeMap::new(),
+            ports: BTreeMap::new(),
+            port_cells: BTreeMap::new(),
+            region: Arena::new(),
+            attributes: BTreeMap::new(),
+            timing_result: TimingResult::new(),
+            as_context: None,
             design_loaded: false,
-            all_ui_reload: todo!(),
-            frame_ui_reload: todo!(),
-            bel_ui_reload: todo!(),
-            wire_ui_reload: todo!(),
-            pip_ui_reload: todo!(),
+            all_ui_reload: false,
+            frame_ui_reload: false,
+            bel_ui_reload: BTreeMap::new(),
+            wire_ui_reload: BTreeMap::new(),
+            pip_ui_reload: BTreeMap::new(),
         }
     }
 }

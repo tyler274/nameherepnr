@@ -1,3 +1,4 @@
+use super::cell::CellInfo;
 use super::net::UserId;
 use crate::kernel::delay::{Delay, DelayTrait};
 use crate::kernel::id_string::IdString;
@@ -6,14 +7,14 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use thunderdome::{Arena, Index};
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, Eq, Hash)]
 pub struct PortRef<D>
 where
     D: DelayTrait,
 {
     //    cell: Option<Weak<CellInfo<DelayType, CellType>>>,
     /// An index into the arena of cells leading to the cell that a port is tied to.
-    pub cell: Option<Index>,
+    pub cell: Option<Index<CellInfo<D>>>,
     /// A phantom data entry to ensure that the PortRef remains specialized to the cell it was instantiated on.
     /// Might want to track the lifetime of the relevant cell arena as well.
     //    cell_phantom: PhantomData<C>,
@@ -84,23 +85,22 @@ impl const PartialEq for PortType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PortInfo
-//<D>
-//where
-//    D: DelayTrait,
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PortInfo<D>
+where
+    D: DelayTrait,
 {
     pub name: IdString,
     //    net: Box<NetInfo<DelayType, CellType>>,
     //
-    pub net: Option<Index>,
+    pub net: Option<Index<NetInfo<D>>>,
     pub port_type: PortType,
     pub user_index: Option<UserId>,
 }
 
-impl PortInfo
+impl<D> PortInfo<D>
 where
-//    D: DelayTrait,
+    D: DelayTrait,
 //    CellType: CellTrait<DelayType>,
 {
     pub const fn new() -> Self {
@@ -113,7 +113,7 @@ where
             //            _net_phantom: PhantomData,
         }
     }
-    pub fn with_arena<D: DelayTrait>(_net_arena: &mut Arena<NetInfo<D>>) -> Self {
+    pub fn with_arena(_net_arena: &mut Arena<NetInfo<D>>) -> Self {
         Self {
             name: IdString::new(),
             //            net: Box::new(NetInfo::new()),
@@ -131,9 +131,9 @@ where
     }
 }
 
-impl const Default for PortInfo
-//where
-//    D: DelayTrait,
+impl<D> const Default for PortInfo<D>
+where
+    D: DelayTrait,
 {
     fn default() -> Self
 //    where

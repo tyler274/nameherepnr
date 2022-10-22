@@ -10,10 +10,10 @@ use std::collections::BTreeMap;
 use thunderdome::{Arena, Index};
 use typed_index_collections::TiVec;
 
-#[derive(Clone, Copy, Debug, From, Into, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, From, Into, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct UserId(usize);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NetInfo<DelayType>
 where
     DelayType: DelayTrait,
@@ -34,9 +34,9 @@ where
     aliases: Vec<IdString>, // entries in net_aliases that point to this net
 
     //    clk_constr: Box<ClockConstraint<DelayType>>,
-    clk_constr: Option<Index>,
+    clk_constr: Option<Index<ClockConstraint<DelayType>>>,
     //    region: Option<Box<Region>>,
-    region: Option<Index>,
+    region: Option<Index<Region>>,
 }
 
 impl<DelayType> NetInfo<DelayType>
@@ -60,8 +60,8 @@ where
         }
     }
     pub fn with_arena(
-        region_arena: &mut Arena<Region>,
-        clk_constr_arena: &mut Arena<ClockConstraint<DelayType>>,
+        region_arena: &mut Arena<Region, Region>,
+        clk_constr_arena: &mut Arena<ClockConstraint<DelayType>, ClockConstraint<DelayType>>,
     ) -> Self {
         Self {
             clk_constr: Some(clk_constr_arena.insert(ClockConstraint::new())),

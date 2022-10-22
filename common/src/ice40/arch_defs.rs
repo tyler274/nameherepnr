@@ -1,8 +1,9 @@
 use crate::kernel::base_clusterinfo::BaseClusterInfo;
+use crate::kernel::delay::DelayTrait;
 use crate::kernel::id_string::IdString;
+use crate::kernel::net::NetInfo;
 use hashers::oz::DJB2Hasher;
-use std::hash::{BuildHasher, BuildHasherDefault};
-use std::hash::{Hash, Hasher};
+use std::hash::{BuildHasher, BuildHasherDefault, Hash, Hasher};
 use thunderdome::Index;
 
 pub trait BelIdTrait {}
@@ -388,8 +389,11 @@ impl const PartialEq for ArchNetInfo {
     }
 }
 
-#[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct LcInfo {
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct LcInfo<D>
+where
+    D: DelayTrait,
+{
     dff_enable: bool,
     carry_enable: bool,
     neg_clk: bool,
@@ -398,9 +402,9 @@ pub struct LcInfo {
     //    clk: Box<NetInfo>,
     //    cen: Box<NetInfo>,
     //    sr: Box<NetInfo>,
-    clk: Index,
-    cen: Index,
-    srd: Index,
+    clk: Index<NetInfo<D>>,
+    cen: Index<NetInfo<D>>,
+    srd: Index<NetInfo<D>>,
 }
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
@@ -412,9 +416,15 @@ pub struct IoInfo {
     // TODO: clk packing checks...
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
 pub struct GbInfo {
     for_pad_in: bool,
+}
+
+impl Hash for GbInfo {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.for_pad_in.hash(state);
+    }
 }
 
 impl const PartialEq for GbInfo {
@@ -423,9 +433,15 @@ impl const PartialEq for GbInfo {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
 pub struct LedInfo {
     led_cur_connected: bool,
+}
+
+impl Hash for LedInfo {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.led_cur_connected.hash(state);
+    }
 }
 
 impl const PartialEq for LedInfo {
@@ -435,9 +451,9 @@ impl const PartialEq for LedInfo {
 }
 
 // TODO: Does this need to be a C style Union? repr(C)?
-#[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub enum CellEnum {
-    Lc(LcInfo),
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub enum CellEnum<D> where D: DelayTrait {
+    Lc(LcInfo<D>),
     Io(IoInfo),
     Gb(GbInfo),
     Led(LedInfo),
@@ -467,13 +483,19 @@ pub enum CellEnum {
 //}
 
 // TODO: Does this need to be repr(C)?
-#[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct ArchCellInfo {
-    base_cluster_info: BaseClusterInfo,
-    cell: CellEnum,
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct ArchCellInfo<D>
+where
+    D: DelayTrait,
+{
+    base_cluster_info: BaseClusterInfo<D>,
+    cell: CellEnum<D>,
 }
 
-impl ArchCellInfo {
+impl<D> ArchCellInfo<D>
+where
+    D: DelayTrait,
+{
     pub const fn new() -> Self {
         todo!()
     }

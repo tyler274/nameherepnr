@@ -241,3 +241,22 @@ where
     // Detailed net timing data
     detailed_net_timings: BTreeMap<IdString, Vec<NetSinkTiming<DelayType>>>,
 }
+
+impl<D> TimingResult<D> where D: DelayTrait {
+    pub const fn new() -> Self {
+        Self {
+            clock_fmax: BTreeMap::new(),
+            clock_paths: BTreeMap::new(),
+            xclock_paths: Vec::new(),
+            detailed_net_timings: BTreeMap::new(),
+        }
+    }
+}
+
+impl<D> const Default for TimingResult<D>
+where D: DelayTrait
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}

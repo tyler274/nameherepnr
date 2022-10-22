@@ -11,6 +11,7 @@ use crate::kernel::{
 use std::collections::btree_map::Entry::Vacant;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::hash::Hash;
 
 use super::base_types::PlaceStrength;
 use super::context::Context;
@@ -100,12 +101,12 @@ impl<DelayType: DelayTrait> PseudoCell<DelayType> for RegionPlug {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CellInfo<D>
 where
     D: DelayTrait,
 {
-    _arch_cell_info: ArchCellInfo,
+    _arch_cell_info: ArchCellInfo<D>,
     // Lets try using Arena indices for these.
     //    context: Option<Box<Context>>,
     //    region: Option<Box<Region>>,
@@ -114,19 +115,20 @@ where
     _marker_d: core::marker::PhantomData<D>,
 
     // Index to the context within the Context arena.
-    _context: Option<Index>,
+    _context: Option<Index<Context>>,
     // Index to the region within the Region arena.
-    region: Option<Index>,
+    region: Option<Index<Region>>,
     // TODO: What is a pseudo cell really?
-    pseudo_cell: Option<Box<dyn PseudoCell<D>>>,
+//    pseudo_cell: Option<Box<dyn PseudoCell<D>>>,
+    pseudo_cell: Option<Index>,
     // Index to this cell in the Arena
-    self_index: Option<Index>,
+    self_index: Option<Index<Self>>,
     _name: IdString,
     _cell_type: IdString,
     _hierarchy_path: IdString,
     _udata: i32,
 
-    ports: BTreeMap<IdString, PortInfo>,
+    ports: BTreeMap<IdString, PortInfo<D>>,
     attributes: BTreeMap<IdString, Property>,
     parameters: BTreeMap<IdString, Property>,
 
@@ -137,8 +139,28 @@ where
     _cluster: ClusterId,
 }
 
+impl<D> Hash for CellInfo<D> where D: DelayTrait {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self._arch_cell_info.hash(state);
+        self._context.hash(state);
+        self.region.hash(state);
+        self.pseudo_cell.hash(state);
+        self.self_index.hash(state);
+        self._name.hash(state);
+        self._cell_type.hash(state);
+        self._hierarchy_path.hash(state);
+        self._udata.hash(state);
+        self.ports.hash(state);
+        self.attributes.hash(state);
+        self.parameters.hash(state);
+        self.bel.hash(state);
+        self._bel_strength.hash(state);
+        self._cluster.hash(state);
+    }
+}
+
 impl<D> Eq for CellInfo<D> where D: DelayTrait {
-    
+
 }
 
 impl<D> PartialEq for CellInfo<D> where D: DelayTrait {
@@ -197,10 +219,10 @@ where
         }
     }
     pub fn with_arena(
-        self_arena: &mut Arena<Self>,
-        ctx_arena: &mut Arena<Context>,
-        region_arena: &mut Arena<Region>,
-    ) -> Index {
+        self_arena: &mut Arena<Self, Self>,
+        ctx_arena: &mut Arena<Context, Context>,
+        region_arena: &mut Arena<Region, Region>,
+    ) -> Index<Self> {
         let n = Self {
             _context: Some(ctx_arena.insert(Context::new())),
             region: Some(region_arena.insert(Region::new())),
@@ -218,7 +240,6 @@ where
                 port_type: PortType::In,
                 net: self.ports[&name].net,
                 user_index: self.ports[&name].user_index,
-                ..Default::default()
             },
         );
     }
@@ -230,7 +251,6 @@ where
                 port_type: PortType::Out,
                 net: self.ports[&name].net,
                 user_index: self.ports[&name].user_index,
-                ..Default::default()
             },
         );
     }
@@ -242,7 +262,7 @@ where
                 port_type: PortType::InOut,
                 net: self.ports[&name].net,
                 user_index: self.ports[&name].user_index,
-                ..Default::default()
+
             },
         );
     }
@@ -260,7 +280,7 @@ where
     }
 
     // check whether a bel complies with the cell's region constraint
-    pub fn test_region(&self, bel: BelId, region_arena: &mut Arena<Region>) -> bool {
+    pub fn test_region(&self, bel: BelId, region_arena: &mut Arena<Region, Region>) -> bool {
         if let Some(region) = &self.region {
             let reg = region_arena.get(*region).unwrap();
             reg.constr_bels || reg.bels.contains_key(&bel)
@@ -274,7 +294,7 @@ where
         self.pseudo_cell.is_some()
     }
 
-    pub fn get_location(&self, _bel: BelId, _pcell_arena: &mut Arena<CellInfo<D>>) -> Loc {
+    pub fn get_location(&self, _bel: BelId, _pcell_arena: &mut Arena<CellInfo<D>, CellInfo<D>>) -> Loc {
         if let Some(_pseudo_cell) = &self.pseudo_cell {
             //            pseudo_cell.get_location()
             todo!()
@@ -285,7 +305,7 @@ where
         }
     }
 
-    pub fn get_port(&self, name: IdString) -> Option<Index> {
+    pub fn get_port(&self, name: IdString) -> Option<Index<NetInfo<D>>> {
         let found = self.ports.get(&name);
         if let Some(found_port) = found {
             found_port.net
@@ -298,8 +318,8 @@ where
         &mut self,
         port_name: IdString,
         //        net: &NetInfo<DelayType, CellType>,
-        net: Index,
-        net_arena: &mut Arena<NetInfo<D>>,
+        net: Index<NetInfo<D>>,
+        net_arena: &mut Arena<NetInfo<D>, NetInfo<D>>,
     ) -> Result<(), CellError> {
         // Get the port from our btree mapping that matches the passed in port_name value.
         // If there's nothing there just return the default value.
@@ -342,7 +362,7 @@ where
     pub fn disconnect_port(
         &mut self,
         port_name: IdString,
-        net_arena: &mut Arena<NetInfo<D>>,
+        net_arena: &mut Arena<NetInfo<D>, NetInfo<D>>,
     ) -> Result<(), CellError> {
         if !self.ports.contains_key(&port_name) {
             let mut port = self
@@ -370,7 +390,7 @@ where
         port: IdString,
         other: &mut CellInfo<D>,
         other_port: IdString,
-        net_arena: &mut Arena<NetInfo<D>>,
+        net_arena: &mut Arena<NetInfo<D>, NetInfo<D>>,
     ) -> Result<(), CellError> {
         let port_1 = self.ports.get_mut(&port).ok_or(CellError::PortNotFound)?;
         if let Some(p1_net) = port_1.net {
@@ -389,7 +409,7 @@ where
         port: IdString,
         other: &mut CellInfo<D>,
         other_port: IdString,
-        net_arena: &mut Arena<NetInfo<D>>,
+        net_arena: &mut Arena<NetInfo<D>, NetInfo<D>>,
     ) -> Result<(), CellError> {
         let mut old = self.ports.get_mut(&port).ok_or(CellError::PortNotFound)?;
         // Create port on the replacement cell if it doesn't already exist
@@ -442,7 +462,7 @@ where
         &mut self,
         old_name: IdString,
         new_name: IdString,
-        net_arena: &mut Arena<NetInfo<D>>,
+        net_arena: &mut Arena<NetInfo<D>, NetInfo<D>>,
     ) -> Result<(), CellError> {
         let mut old = self
             .ports
@@ -478,7 +498,7 @@ where
         new_cell: &mut CellInfo<D>,
         new_port_bus: PortBus,
         width: i32,
-        net_arena: &mut Arena<NetInfo<D>>,
+        net_arena: &mut Arena<NetInfo<D>, NetInfo<D>>,
     ) -> Result<(), CellError> {
         for _i in 0..width {
             // FIXME: correct this after implementing Context.
@@ -495,7 +515,7 @@ where
         port: IdString,
         other: &mut CellInfo<D>,
         other_port: IdString,
-        net_arena: &mut Arena<NetInfo<D>>,
+        net_arena: &mut Arena<NetInfo<D>, NetInfo<D>>,
     ) -> Result<(), CellError> {
         let self_port = self.ports.get(&port).ok_or(CellError::PortNotFound)?;
 
@@ -519,7 +539,7 @@ where
         new_cell: &mut CellInfo<D>,
         new_port_bus: PortBus,
         width: i32,
-        net_arena: &mut Arena<NetInfo<D>>,
+        net_arena: &mut Arena<NetInfo<D>, NetInfo<D>>,
     ) {
         todo!()
     }
