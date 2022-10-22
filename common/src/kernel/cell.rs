@@ -8,6 +8,7 @@ use crate::kernel::{
     id_string::IdString,
     timing::{TimingClockingInfo, TimingPortClass},
 };
+use core::marker::PhantomData;
 use std::collections::btree_map::Entry::Vacant;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -69,7 +70,7 @@ impl RegionPlug {
     }
 }
 
-impl<DelayType: DelayTrait> PseudoCell<DelayType> for RegionPlug {
+impl<D: DelayTrait> PseudoCell<D> for RegionPlug {
     fn get_location(&self) -> Loc {
         self.loc
     }
@@ -84,7 +85,7 @@ impl<DelayType: DelayTrait> PseudoCell<DelayType> for RegionPlug {
         &self,
         _from_port: IdString,
         _to_port: IdString,
-        _delay: &DelayQuad<DelayType>,
+        _delay: &DelayQuad<D>,
     ) -> bool {
         false
     }
@@ -93,9 +94,9 @@ impl<DelayType: DelayTrait> PseudoCell<DelayType> for RegionPlug {
         TimingPortClass::Ignore
     }
 
-    fn get_port_clocking_info(&self, _port: IdString, _index: u64) -> TimingClockingInfo<DelayType>
+    fn get_port_clocking_info(&self, _port: IdString, _index: u64) -> TimingClockingInfo<D>
     where
-        DelayType: ~const DelayTrait,
+        D: ~const DelayTrait,
     {
         TimingClockingInfo::new()
     }
@@ -106,20 +107,20 @@ pub struct CellInfo<D>
 where
     D: DelayTrait,
 {
-    _arch_cell_info: ArchCellInfo<D>,
+    arch_cell_info: ArchCellInfo<D>,
     // Lets try using Arena indices for these.
     //    context: Option<Box<Context>>,
     //    region: Option<Box<Region>>,
     //    pseudo_cell: Option<std::rc::Rc<CellType>>,
     //    rc_self: Weak<Self>,
-    _marker_d: core::marker::PhantomData<D>,
+    _marker_d: PhantomData<D>,
 
     // Index to the context within the Context arena.
-    _context: Option<Index<Context>>,
+    context: Option<Index<Context>>,
     // Index to the region within the Region arena.
     region: Option<Index<Region>>,
     // TODO: What is a pseudo cell really?
-//    pseudo_cell: Option<Box<dyn PseudoCell<D>>>,
+    //    pseudo_cell: Option<Box<dyn PseudoCell<D>>>,
     pseudo_cell: Option<Index>,
     // Index to this cell in the Arena
     self_index: Option<Index<Self>>,
@@ -139,10 +140,13 @@ where
     _cluster: ClusterId,
 }
 
-impl<D> Hash for CellInfo<D> where D: DelayTrait {
+impl<D> Hash for CellInfo<D>
+where
+    D: DelayTrait,
+{
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self._arch_cell_info.hash(state);
-        self._context.hash(state);
+        self.arch_cell_info.hash(state);
+        self.context.hash(state);
         self.region.hash(state);
         self.pseudo_cell.hash(state);
         self.self_index.hash(state);
@@ -159,14 +163,19 @@ impl<D> Hash for CellInfo<D> where D: DelayTrait {
     }
 }
 
-impl<D> Eq for CellInfo<D> where D: DelayTrait {
+impl<D> Eq for CellInfo<D> where D: DelayTrait {}
 
-}
-
-impl<D> PartialEq for CellInfo<D> where D: DelayTrait {
+impl<D> PartialEq for CellInfo<D>
+where
+    D: DelayTrait,
+{
     fn eq(&self, other: &Self) -> bool {
         todo!();
-        self._arch_cell_info == other._arch_cell_info
+        self.arch_cell_info == other.arch_cell_info
+            && self.context == other.context
+            && self.region == other.region
+            && self.pseudo_cell == other.pseudo_cell
+            && self.self_index == other.self_index
     }
 }
 
@@ -199,8 +208,8 @@ where
 {
     pub fn new() -> Self {
         Self {
-            _arch_cell_info: ArchCellInfo::new(),
-            _context: None,
+            arch_cell_info: ArchCellInfo::new(),
+            context: None,
             region: None,
             pseudo_cell: None,
             _name: IdString::new(),
@@ -224,7 +233,7 @@ where
         region_arena: &mut Arena<Region, Region>,
     ) -> Index<Self> {
         let n = Self {
-            _context: Some(ctx_arena.insert(Context::new())),
+            context: Some(ctx_arena.insert(Context::new())),
             region: Some(region_arena.insert(Region::new())),
             ..Default::default()
         };
@@ -262,7 +271,6 @@ where
                 port_type: PortType::InOut,
                 net: self.ports[&name].net,
                 user_index: self.ports[&name].user_index,
-
             },
         );
     }
@@ -294,7 +302,11 @@ where
         self.pseudo_cell.is_some()
     }
 
-    pub fn get_location(&self, _bel: BelId, _pcell_arena: &mut Arena<CellInfo<D>, CellInfo<D>>) -> Loc {
+    pub fn get_location(
+        &self,
+        _bel: BelId,
+        _pcell_arena: &mut Arena<CellInfo<D>, CellInfo<D>>,
+    ) -> Loc {
         if let Some(_pseudo_cell) = &self.pseudo_cell {
             //            pseudo_cell.get_location()
             todo!()
@@ -545,9 +557,9 @@ where
     }
 }
 
-impl<DelayType> Default for CellInfo<DelayType>
+impl<D> Default for CellInfo<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     fn default() -> Self {
         Self::new()

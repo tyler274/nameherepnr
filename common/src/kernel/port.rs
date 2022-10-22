@@ -4,28 +4,30 @@ use crate::kernel::delay::{Delay, DelayTrait};
 use crate::kernel::id_string::IdString;
 use crate::kernel::net::NetInfo;
 use std::hash::Hash;
-use std::marker::PhantomData;
 use thunderdome::{Arena, Index};
 
-#[derive(Debug, Clone, Eq, Hash)]
+#[derive(Debug, Clone, Eq)]
 pub struct PortRef<D>
 where
     D: DelayTrait,
 {
-    //    cell: Option<Weak<CellInfo<DelayType, CellType>>>,
     /// An index into the arena of cells leading to the cell that a port is tied to.
     pub cell: Option<Index<CellInfo<D>>>,
-    /// A phantom data entry to ensure that the PortRef remains specialized to the cell it was instantiated on.
-    /// Might want to track the lifetime of the relevant cell arena as well.
-    //    cell_phantom: PhantomData<C>,
     pub port: IdString,
     pub budget: Delay<D>,
 }
 
-impl<DelayType> PartialEq for PortRef<DelayType>
+impl<D> Hash for PortRef<D> where D:DelayTrait {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.cell.hash(state);
+        self.port.hash(state);
+        self.budget.hash(state);
+    }
+}
+
+impl<D> PartialEq for PortRef<D>
 where
-    DelayType: DelayTrait,
-    //    CellType: CellTrait<DelayType>,
+    D: DelayTrait,
 {
     fn eq(&self, other: &Self) -> bool {
         self.port == other.port
@@ -39,18 +41,16 @@ where
     }
 }
 
-impl<DelayType> PortRef<DelayType>
+impl<D> PortRef<D>
 where
-    DelayType: DelayTrait,
-    //    CellType: CellTrait<DelayType>,
+    D: DelayTrait,
 {
     pub const fn new() -> Self
     where
-        DelayType: ~const DelayTrait,
+        D: ~const DelayTrait,
     {
         Self {
             cell: None,
-            //            cell_phantom: PhantomData,
             port: IdString::new(),
             budget: Delay::new(),
         }

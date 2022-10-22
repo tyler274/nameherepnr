@@ -1,8 +1,8 @@
 use crate::{
     ice40::arch_defs::{ArchNetInfo, WireId},
     kernel::{
-        delay::DelayTrait, id_string::IdString, port::PortRef, property::Property,
-        region::Region, timing::ClockConstraint, types::PipMap,
+        delay::DelayTrait, id_string::IdString, port::PortRef, property::Property, region::Region,
+        timing::ClockConstraint, types::PipMap,
     },
 };
 use derive_more::{From, Into};
@@ -14,18 +14,18 @@ use typed_index_collections::TiVec;
 pub struct UserId(usize);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NetInfo<DelayType>
+pub struct NetInfo<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     arch_net_info: ArchNetInfo,
     name: IdString,
     hierarchy_path: IdString,
     udata: i32,
 
-    pub driver: PortRef<DelayType>,
+    pub driver: PortRef<D>,
     // TODO: Measure performance/check implementation of TiVEc, see if its better than O(n) on entry deletion.
-    pub users: TiVec<UserId, PortRef<DelayType>>,
+    pub users: TiVec<UserId, PortRef<D>>,
     attrs: BTreeMap<IdString, Property>,
 
     // wire -> uphill_pip
@@ -33,15 +33,13 @@ where
 
     aliases: Vec<IdString>, // entries in net_aliases that point to this net
 
-    //    clk_constr: Box<ClockConstraint<DelayType>>,
-    clk_constr: Option<Index<ClockConstraint<DelayType>>>,
-    //    region: Option<Box<Region>>,
+    clk_constr: Option<Index<ClockConstraint<D>>>,
     region: Option<Index<Region>>,
 }
 
-impl<DelayType> NetInfo<DelayType>
+impl<D> NetInfo<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     pub fn new() -> Self {
         Self {
@@ -61,7 +59,7 @@ where
     }
     pub fn with_arena(
         region_arena: &mut Arena<Region, Region>,
-        clk_constr_arena: &mut Arena<ClockConstraint<DelayType>, ClockConstraint<DelayType>>,
+        clk_constr_arena: &mut Arena<ClockConstraint<D>, ClockConstraint<D>>,
     ) -> Self {
         Self {
             clk_constr: Some(clk_constr_arena.insert(ClockConstraint::new())),
@@ -77,9 +75,9 @@ where
     }
 }
 
-impl<DelayType> Default for NetInfo<DelayType>
+impl<D> Default for NetInfo<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     fn default() -> Self {
         Self::new()

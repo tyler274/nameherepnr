@@ -59,17 +59,20 @@ impl const PartialEq for ClockEdge {
 }
 
 #[derive(Debug, Copy, Clone, Eq)]
-pub struct TimingClockingInfo<DelayType: DelayTrait> {
+pub struct TimingClockingInfo<D>
+where
+    D: DelayTrait,
+{
     clock_port: IdString, // Port name of clock domain
     edge: ClockEdge,
-    setup: DelayPair<DelayType>,      // Input timing checks
-    hold: DelayPair<DelayType>,       // Input timing checks
-    clock_to_q: DelayQuad<DelayType>, // Output clock-to-Q time
+    setup: DelayPair<D>,      // Input timing checks
+    hold: DelayPair<D>,       // Input timing checks
+    clock_to_q: DelayQuad<D>, // Output clock-to-Q time
 }
 
-impl<DelayType> Hash for TimingClockingInfo<DelayType>
+impl<D> Hash for TimingClockingInfo<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.clock_port.hash(state);
@@ -80,9 +83,9 @@ where
     }
 }
 
-impl<DelayType> const PartialEq for TimingClockingInfo<DelayType>
+impl<D> const PartialEq for TimingClockingInfo<D>
 where
-    DelayType: DelayTrait + ~const PartialEq,
+    D: DelayTrait + ~const PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.clock_port == other.clock_port
@@ -93,13 +96,13 @@ where
     }
 }
 
-impl<DelayType> TimingClockingInfo<DelayType>
+impl<D> TimingClockingInfo<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     pub const fn new() -> Self
     where
-        DelayType: ~const DelayTrait,
+        D: ~const DelayTrait,
     {
         Self {
             clock_port: IdString::new(),
@@ -112,19 +115,22 @@ where
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
-pub struct ClockConstraint<DelayType: DelayTrait> {
-    high: DelayPair<DelayType>,
-    low: DelayPair<DelayType>,
-    period: DelayPair<DelayType>,
+pub struct ClockConstraint<D>
+where
+    D: DelayTrait,
+{
+    high: DelayPair<D>,
+    low: DelayPair<D>,
+    period: DelayPair<D>,
 }
 
-impl<DelayType> ClockConstraint<DelayType>
+impl<D> ClockConstraint<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     pub const fn new() -> Self
     where
-        DelayType: ~const DelayTrait,
+        D: ~const DelayTrait,
     {
         Self {
             high: DelayPair::new(),
@@ -134,7 +140,7 @@ where
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ClockFmax {
     achieved: NotNan<f32>,
     constraint: NotNan<f32>,
@@ -178,34 +184,34 @@ impl const PartialEq for ClockPair {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct CriticalPath<DelayType: DelayTrait> {
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct CriticalPath<D: DelayTrait> {
     // Clock pair
     clock_pair: ClockPair,
     // Total path delay
-    delay: Delay<DelayType>,
+    delay: Delay<D>,
     // Period (max allowed delay)
-    period: Delay<DelayType>,
+    period: Delay<D>,
     // Individual path segments
-    segments: Vec<Segment<DelayType>>,
+    segments: Vec<Segment<D>>,
 }
 
 /// Holds timing information of a single source to sink path of a net
 #[derive(Debug, Copy, Clone, Eq)]
-pub struct NetSinkTiming<DelayType: DelayTrait> {
+pub struct NetSinkTiming<D: DelayTrait> {
     // Clock event pair
     clock_pair: ClockPair,
     // Cell and port (the sink)
     cell_port: IdPair,
     // Delay
-    delay: Delay<DelayType>,
+    delay: Delay<D>,
     // Delay budget
-    budget: Delay<DelayType>,
+    budget: Delay<D>,
 }
 
-impl<DelayType> Hash for NetSinkTiming<DelayType>
+impl<D> Hash for NetSinkTiming<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.clock_pair.hash(state);
@@ -215,9 +221,9 @@ where
     }
 }
 
-impl<DelayType> const PartialEq for NetSinkTiming<DelayType>
+impl<D> const PartialEq for NetSinkTiming<D>
 where
-    DelayType: DelayTrait + ~const PartialEq,
+    D: DelayTrait + ~const PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.clock_pair == other.clock_pair
@@ -226,23 +232,26 @@ where
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TimingResult<DelayType>
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct TimingResult<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     // Achieved and target Fmax for all clock domains
     clock_fmax: BTreeMap<IdString, ClockFmax>,
     // Single domain critical paths
-    clock_paths: BTreeMap<IdString, CriticalPath<DelayType>>,
+    clock_paths: BTreeMap<IdString, CriticalPath<D>>,
     // Cross-domain critical paths
-    xclock_paths: Vec<CriticalPath<DelayType>>,
+    xclock_paths: Vec<CriticalPath<D>>,
 
     // Detailed net timing data
-    detailed_net_timings: BTreeMap<IdString, Vec<NetSinkTiming<DelayType>>>,
+    detailed_net_timings: BTreeMap<IdString, Vec<NetSinkTiming<D>>>,
 }
 
-impl<D> TimingResult<D> where D: DelayTrait {
+impl<D> TimingResult<D>
+where
+    D: DelayTrait,
+{
     pub const fn new() -> Self {
         Self {
             clock_fmax: BTreeMap::new(),
@@ -254,7 +263,8 @@ impl<D> TimingResult<D> where D: DelayTrait {
 }
 
 impl<D> const Default for TimingResult<D>
-where D: DelayTrait
+where
+    D: DelayTrait,
 {
     fn default() -> Self {
         Self::new()

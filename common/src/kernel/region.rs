@@ -2,7 +2,6 @@ use crate::ice40::arch_defs::{BelId, WireId};
 use crate::kernel::base_types::Loc;
 use crate::kernel::id_string::IdString;
 use std::collections::BTreeMap;
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Region {
     pub name: IdString,

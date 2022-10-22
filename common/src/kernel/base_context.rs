@@ -7,13 +7,11 @@ use super::region::Region;
 use super::timing::TimingResult;
 use super::{cell::HierarchicalCell, id_string::IdString, property::Property};
 use crate::ice40::arch_defs::{BelId, GroupId, PipId, WireId};
-use ringbuf::{LocalRb, StaticRb};
-use std::collections::vec_deque::VecDeque;
+use core::hash::Hash;
+use ringbuf::StaticRb;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use thunderdome::{Arena, Index};
-//use std::hash::{BuildHasher, BuildHasherDefault};
-//use std::hash::{Hash, Hasher};
 
 pub struct BaseCtx<D: DelayTrait> {
     // Lock to perform mutating actions on the Context.
@@ -77,6 +75,62 @@ pub struct BaseCtx<D: DelayTrait> {
     bel_ui_reload: BTreeMap<usize, BelId>,
     wire_ui_reload: BTreeMap<usize, WireId>,
     pip_ui_reload: BTreeMap<usize, GroupId>,
+}
+
+impl<D> Hash for BaseCtx<D> where D: DelayTrait {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.idstring_idx_to_str.hash(state);
+        self.idstring_str_to_id.hash(state);
+        self.settings.hash(state);
+        // self.log_strs.hash(state);
+        // self.pseudo_cells.hash(state);
+        self.nets.hash(state);
+        self.cells.hash(state);
+        self.hierarchy.hash(state);
+        self.top_module.hash(state);
+        self.net_aliases.hash(state);
+        self.ports.hash(state);
+        self.port_cells.hash(state);
+        self.region.hash(state);
+        self.attributes.hash(state);
+        self.timing_result.hash(state);
+        self.as_context.hash(state);
+        self.design_loaded.hash(state);
+        self.all_ui_reload.hash(state);
+        self.frame_ui_reload.hash(state);
+        self.bel_ui_reload.hash(state);
+        self.wire_ui_reload.hash(state);
+        self.pip_ui_reload.hash(state);
+    }
+}
+
+impl<D> PartialEq for BaseCtx<D>
+where
+    D: DelayTrait,
+{
+    fn eq(&self, other: &Self) -> bool {
+        //        self.log_strs == other.log_strs
+        self.idstring_idx_to_str == other.idstring_idx_to_str
+            && self.idstring_str_to_id == other.idstring_str_to_id
+            && self.settings == other.settings
+            && self.nets == other.nets
+            && self.cells == other.cells
+            && self.hierarchy == other.hierarchy
+            && self.top_module == other.top_module
+            && self.net_aliases == other.net_aliases
+            && self.ports == other.ports
+            && self.port_cells == other.port_cells
+            && self.region == other.region
+            && self.attributes == other.attributes
+            && self.timing_result == other.timing_result
+            && self.as_context == other.as_context
+            && self.design_loaded == other.design_loaded
+            && self.all_ui_reload == other.all_ui_reload
+            && self.frame_ui_reload == other.frame_ui_reload
+            && self.bel_ui_reload == other.bel_ui_reload
+            && self.wire_ui_reload == other.wire_ui_reload
+            && self.pip_ui_reload == other.pip_ui_reload
+    }
 }
 
 impl<D> BaseCtx<D>

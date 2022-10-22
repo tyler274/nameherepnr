@@ -16,68 +16,61 @@ where
 }
 
 #[derive(Debug, Copy, Clone, Eq)]
-pub struct Delay<DelayType: DelayTrait>(DelayType);
-
-impl<DelayType> Hash for Delay<DelayType>
+pub struct Delay<D>(D)
 where
-    DelayType: DelayTrait,
+    D: DelayTrait;
+
+impl<D> Hash for Delay<D>
+where
+    D: DelayTrait,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
-impl<DelayType> Delay<DelayType>
+impl<D> Delay<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     pub const fn new() -> Self
     where
-        DelayType: DelayTrait + ~const DelayTrait,
+        D: DelayTrait + ~const DelayTrait,
     {
-        Delay(DelayType::new())
+        Delay(D::new())
     }
-    pub const fn with_delay(value: DelayType) -> Self
+    pub const fn with_delay(value: D) -> Self
     where
-        DelayType: DelayTrait + ~const DelayTrait,
+        D: DelayTrait + ~const DelayTrait,
     {
         Delay(value)
     }
 }
 
-impl<DelayType: DelayTrait + ~const Ord> const Ord for Delay<DelayType> {
+impl<D> const Ord for Delay<D>
+where
+    D: DelayTrait + ~const Ord,
+{
     fn cmp(&self, other: &Self) -> Ordering {
         self.0.cmp(&other.0)
     }
 }
 
-impl const DelayTrait for u64 {
+impl const DelayTrait for i64 {
     fn new() -> Self {
         0
     }
 }
 
-impl const From<u64> for Delay<u64> {
-    fn from(value: u64) -> Self {
+impl const From<i64> for Delay<i64> {
+    fn from(value: i64) -> Self {
         Self(value)
     }
 }
 
-impl const DelayTrait for i32 {
-    fn new() -> Self {
-        0
-    }
-}
-
-impl const From<i32> for Delay<i32> {
-    fn from(value: i32) -> Self {
-        Self(value)
-    }
-}
-
-impl<DelayType> const Add for Delay<DelayType>
+impl<D> const Add for Delay<D>
 where
-    DelayType: DelayTrait + ~const Add<Output = DelayType>,
+    D: DelayTrait + ~const Add<Output = D>,
 {
     type Output = Self;
 
@@ -86,9 +79,9 @@ where
     }
 }
 
-impl<DelayType> const Sub for Delay<DelayType>
+impl<D> const Sub for Delay<D>
 where
-    DelayType: DelayTrait + ~const Sub<Output = DelayType>,
+    D: DelayTrait + ~const Sub<Output = D>,
 {
     type Output = Self;
 
@@ -97,24 +90,27 @@ where
     }
 }
 
-impl<DelayType> const PartialEq for Delay<DelayType>
+impl<D> const PartialEq for Delay<D>
 where
-    DelayType: DelayTrait + ~const PartialEq,
+    D: DelayTrait + ~const PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<DelayType: DelayTrait + ~const Ord> const PartialOrd for Delay<DelayType> {
+impl<D> const PartialOrd for Delay<D>
+where
+    D: DelayTrait + ~const Ord,
+{
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.0.cmp(&other.0))
     }
 }
 
-impl<DelayType> const Default for Delay<DelayType>
+impl<D> const Default for Delay<D>
 where
-    DelayType: DelayTrait + ~const DelayTrait,
+    D: DelayTrait + ~const DelayTrait,
 {
     fn default() -> Self {
         Self::new()
@@ -123,14 +119,17 @@ where
 
 /// minimum and maximum delay
 #[derive(Debug, Copy, Clone, Eq)]
-pub struct DelayPair<DelayType: DelayTrait> {
-    min_delay: Delay<DelayType>,
-    max_delay: Delay<DelayType>,
+pub struct DelayPair<D>
+where
+    D: DelayTrait,
+{
+    min_delay: Delay<D>,
+    max_delay: Delay<D>,
 }
 
-impl<DelayType> Hash for DelayPair<DelayType>
+impl<D> Hash for DelayPair<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.min_delay.hash(state);
@@ -138,17 +137,20 @@ where
     }
 }
 
-impl<DelayType: DelayTrait> DelayPair<DelayType> {
+impl<D> DelayPair<D>
+where
+    D: DelayTrait,
+{
     pub const fn new() -> Self
     where
-        DelayType: DelayTrait + ~const DelayTrait,
+        D: DelayTrait + ~const DelayTrait,
     {
         Self {
             min_delay: Delay::new(),
             max_delay: Delay::new(),
         }
     }
-    pub const fn with_delay(delay: Delay<DelayType>) -> Self {
+    pub const fn with_delay(delay: Delay<D>) -> Self {
         Self {
             min_delay: delay,
             max_delay: delay,
@@ -157,35 +159,38 @@ impl<DelayType: DelayTrait> DelayPair<DelayType> {
 
     // Does there need to be an invariant such that `min_delay` is
     // always lower than `max_delay`
-    pub const fn with_min_max(min_delay: Delay<DelayType>, max_delay: Delay<DelayType>) -> Self {
+    pub const fn with_min_max(min_delay: Delay<D>, max_delay: Delay<D>) -> Self {
         Self {
             min_delay,
             max_delay,
         }
     }
 
-    pub const fn min_delay(&self) -> Delay<DelayType> {
+    pub const fn min_delay(&self) -> Delay<D> {
         self.min_delay
     }
 
-    pub const fn max_delay(&self) -> Delay<DelayType> {
+    pub const fn max_delay(&self) -> Delay<D> {
         self.max_delay
     }
 }
 
-impl<DelayType: DelayTrait> Default for DelayPair<DelayType> {
+impl<D> Default for DelayPair<D>
+where
+    D: DelayTrait,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<DelayType> const Add<DelayPair<DelayType>> for DelayPair<DelayType>
+impl<D> const Add<DelayPair<D>> for DelayPair<D>
 where
-    DelayType: DelayTrait + ~const Add<Output = DelayType>,
+    D: DelayTrait + ~const Add<Output = D>,
 {
-    type Output = DelayPair<DelayType>;
+    type Output = DelayPair<D>;
 
-    fn add(self, rhs: DelayPair<DelayType>) -> Self::Output {
+    fn add(self, rhs: DelayPair<D>) -> Self::Output {
         DelayPair {
             min_delay: self.min_delay + rhs.min_delay,
             max_delay: self.max_delay + rhs.max_delay,
@@ -193,13 +198,13 @@ where
     }
 }
 
-impl<DelayType> const Sub for DelayPair<DelayType>
+impl<D> const Sub for DelayPair<D>
 where
-    DelayType: DelayTrait + ~const Sub<Output = DelayType>,
+    D: DelayTrait + ~const Sub<Output = D>,
 {
     type Output = Self;
 
-    fn sub(self, rhs: DelayPair<DelayType>) -> Self::Output {
+    fn sub(self, rhs: DelayPair<D>) -> Self::Output {
         DelayPair {
             min_delay: self.min_delay - rhs.min_delay,
             max_delay: self.max_delay - rhs.max_delay,
@@ -207,7 +212,10 @@ where
     }
 }
 
-impl<DelayType: DelayTrait + ~const PartialEq> const PartialEq for DelayPair<DelayType> {
+impl<D> const PartialEq for DelayPair<D>
+where
+    D: DelayTrait + ~const PartialEq,
+{
     fn eq(&self, other: &Self) -> bool {
         self.min_delay == other.min_delay && self.max_delay == other.max_delay
     }
@@ -215,17 +223,17 @@ impl<DelayType: DelayTrait + ~const PartialEq> const PartialEq for DelayPair<Del
 
 /// four-quadrant, min and max rise and fall delay
 #[derive(Debug, Copy, Clone, Eq)]
-pub struct DelayQuad<DelayType>
+pub struct DelayQuad<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
-    rise: DelayPair<DelayType>,
-    fall: DelayPair<DelayType>,
+    rise: DelayPair<D>,
+    fall: DelayPair<D>,
 }
 
-impl<DelayType> Hash for DelayQuad<DelayType>
+impl<D> Hash for DelayQuad<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.rise.hash(state);
@@ -233,31 +241,31 @@ where
     }
 }
 
-impl<DelayType> const PartialEq for DelayQuad<DelayType>
+impl<D> const PartialEq for DelayQuad<D>
 where
-    DelayType: DelayTrait + ~const PartialEq,
+    D: DelayTrait + ~const PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.rise == other.rise && self.fall == other.fall
     }
 }
 
-impl<DelayType> const PartialOrd for DelayQuad<DelayType>
+impl<D> const PartialOrd for DelayQuad<D>
 where
-    DelayType: DelayTrait + ~const PartialOrd,
+    D: DelayTrait + ~const PartialOrd,
 {
     fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
         todo!()
     }
 }
 
-impl<DelayType> DelayQuad<DelayType>
+impl<D> DelayQuad<D>
 where
-    DelayType: DelayTrait,
+    D: DelayTrait,
 {
     pub const fn new() -> Self
     where
-        DelayType: DelayTrait + ~const DelayTrait,
+        D: DelayTrait + ~const DelayTrait,
     {
         Self {
             rise: DelayPair::new(),
@@ -265,29 +273,29 @@ where
         }
     }
 
-    pub const fn with_delay(delay: Delay<DelayType>) -> Self {
+    pub const fn with_delay(delay: Delay<D>) -> Self {
         Self {
             rise: DelayPair::with_delay(delay),
             fall: DelayPair::with_delay(delay),
         }
     }
 
-    pub const fn with_min_max(min_delay: Delay<DelayType>, max_delay: Delay<DelayType>) -> Self {
+    pub const fn with_min_max(min_delay: Delay<D>, max_delay: Delay<D>) -> Self {
         Self {
             rise: DelayPair::with_min_max(min_delay, max_delay),
             fall: DelayPair::with_min_max(min_delay, max_delay),
         }
     }
 
-    pub const fn with_rise_fall(rise: DelayPair<DelayType>, fall: DelayPair<DelayType>) -> Self {
+    pub const fn with_rise_fall(rise: DelayPair<D>, fall: DelayPair<D>) -> Self {
         Self { rise, fall }
     }
 
     pub const fn with_rise_fall_min_max(
-        min_rise: Delay<DelayType>,
-        max_rise: Delay<DelayType>,
-        min_fall: Delay<DelayType>,
-        max_fall: Delay<DelayType>,
+        min_rise: Delay<D>,
+        max_rise: Delay<D>,
+        min_fall: Delay<D>,
+        max_fall: Delay<D>,
     ) -> Self {
         Self {
             rise: DelayPair::with_min_max(min_rise, max_rise),
@@ -295,47 +303,47 @@ where
         }
     }
 
-    pub const fn min_rise_delay(&self) -> Delay<DelayType> {
+    pub const fn min_rise_delay(&self) -> Delay<D> {
         self.rise.min_delay()
     }
 
-    pub const fn max_rise_delay(&self) -> Delay<DelayType> {
+    pub const fn max_rise_delay(&self) -> Delay<D> {
         self.rise.max_delay()
     }
 
-    pub const fn min_fall_felay(&self) -> Delay<DelayType> {
+    pub const fn min_fall_felay(&self) -> Delay<D> {
         self.fall.min_delay()
     }
 
-    pub const fn max_fall_delay(&self) -> Delay<DelayType> {
+    pub const fn max_fall_delay(&self) -> Delay<D> {
         self.fall.max_delay()
     }
 
-    pub const fn min_delay(&self) -> Delay<DelayType>
+    pub const fn min_delay(&self) -> Delay<D>
     where
-        DelayType: DelayTrait + ~const Ord + ~const Destruct,
+        D: DelayTrait + ~const Ord + ~const Destruct,
     {
         std::cmp::min(self.rise.min_delay(), self.fall.min_delay())
     }
 
-    pub const fn max_delay(&self) -> Delay<DelayType>
+    pub const fn max_delay(&self) -> Delay<D>
     where
-        DelayType: DelayTrait + ~const Ord + ~const Destruct,
+        D: DelayTrait + ~const Ord + ~const Destruct,
     {
         std::cmp::max(self.rise.max_delay(), self.fall.max_delay())
     }
 
-    pub const fn delay_pair(&self) -> DelayPair<DelayType>
+    pub const fn delay_pair(&self) -> DelayPair<D>
     where
-        DelayType: DelayTrait + ~const Ord + ~const Destruct,
+        D: DelayTrait + ~const Ord + ~const Destruct,
     {
         DelayPair::with_min_max(self.min_delay(), self.max_delay())
     }
 }
 
-impl<DelayType> const Add<DelayQuad<DelayType>> for DelayQuad<DelayType>
+impl<D> const Add<DelayQuad<D>> for DelayQuad<D>
 where
-    DelayType: DelayTrait + ~const Add<Output = DelayType>,
+    D: DelayTrait + ~const Add<Output = D>,
 {
     type Output = Self;
 
@@ -347,9 +355,9 @@ where
     }
 }
 
-impl<DelayType> const Sub<DelayQuad<DelayType>> for DelayQuad<DelayType>
+impl<D> const Sub<DelayQuad<D>> for DelayQuad<D>
 where
-    DelayType: DelayTrait + ~const Sub<Output = DelayType>,
+    D: DelayTrait + ~const Sub<Output = D>,
 {
     type Output = Self;
 
@@ -361,9 +369,9 @@ where
     }
 }
 
-impl<DelayType> const Default for DelayQuad<DelayType>
+impl<D> const Default for DelayQuad<D>
 where
-    DelayType: DelayTrait + ~const Destruct + ~const Ord + ~const DelayTrait,
+    D: DelayTrait + ~const Destruct + ~const Ord + ~const DelayTrait,
 {
     fn default() -> Self {
         Self::new()
