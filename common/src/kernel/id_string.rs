@@ -44,7 +44,7 @@ impl IdString {
         todo!()
     }
     pub fn initialize_add<D: DelayTrait>(ctx: &mut BaseCtx<D>, s: &str, idx: u64) {
-        assert!(ctx.idstring_str_to_idx.len() == 0);
+        assert!(ctx.idstring_str_to_idx.is_empty());
         assert!(ctx.idstring_idx_to_str.len() == idx as usize);
         ctx.idstring_str_to_idx.insert(s.to_string(), idx);
         ctx.idstring_idx_to_str.push(s.to_string());
@@ -83,16 +83,12 @@ impl IdString {
             .to_string())
     }
 
-    pub fn empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.index == 0
     }
 
-    pub const fn equals(&self, other: &Self) -> bool {
-        self.index == other.index
-    }
-
     pub const fn inside(&self, rhs: &Self) -> bool {
-        self.equals(rhs)
+        self == rhs
     }
 
     pub const fn inside_list(&self, args: &[&IdString]) -> bool {
@@ -100,7 +96,7 @@ impl IdString {
         let mut i = 0;
         loop {
             let s = args[i];
-            result = result || s.equals(self);
+            result = result || s == self;
             i += 1;
             if i == args.len() {
                 break;
