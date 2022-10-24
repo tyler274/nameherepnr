@@ -25,7 +25,7 @@ pub struct BaseCtx<D: DelayTrait> {
 
     // ID String database.
     pub idstring_idx_to_str: Vec<String>,
-    pub idstring_str_to_id: BTreeMap<String, isize>,
+    pub idstring_str_to_idx: BTreeMap<String, u64>,
 
     // Temporary string backing store for logging
     pub log_strs: SmallVec<[String; 100]>,
@@ -83,7 +83,7 @@ where
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.idstring_idx_to_str.hash(state);
-        self.idstring_str_to_id.hash(state);
+        self.idstring_str_to_idx.hash(state);
         self.settings.hash(state);
         self.log_strs.hash(state);
         // self.pseudo_cells.hash(state);
@@ -114,7 +114,7 @@ where
     fn eq(&self, other: &Self) -> bool {
         //        self.log_strs == other.log_strs
         self.idstring_idx_to_str == other.idstring_idx_to_str
-            && self.idstring_str_to_id == other.idstring_str_to_id
+            && self.idstring_str_to_idx == other.idstring_str_to_idx
             && self.settings == other.settings
             && self.nets == other.nets
             && self.cells == other.cells
@@ -143,7 +143,7 @@ where
     pub const fn new() -> Self {
         Self {
             idstring_idx_to_str: Vec::new(),
-            idstring_str_to_id: BTreeMap::new(),
+            idstring_str_to_idx: BTreeMap::new(),
             log_strs: SmallVec::new_const(),
             settings: BTreeMap::new(),
             nets: Arena::new(),
