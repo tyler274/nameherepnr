@@ -1,8 +1,9 @@
-use std::cmp::{Ord, Ordering};
-use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
-use std::marker::Destruct;
-use std::ops::{Add, Sub};
+use core::cmp::{Ord, Ordering};
+use core::fmt::Debug;
+use core::hash::{Hash, Hasher};
+use core::marker::Destruct;
+use core::ops::{Add, Sub};
+use serde::{Serialize, Deserialize};
 
 /// The trait that all delays have to implement to fit within our model.
 #[const_trait]
@@ -15,7 +16,7 @@ where
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq)]
+#[derive(Debug, Copy, Clone, Eq, Serialize, Deserialize)]
 pub struct Delay<D>(D)
 where
     D: DelayTrait;
@@ -118,7 +119,7 @@ where
 }
 
 /// minimum and maximum delay
-#[derive(Debug, Copy, Clone, Eq)]
+#[derive(Debug, Copy, Clone, Eq, Serialize, Deserialize)]
 pub struct DelayPair<D>
 where
     D: DelayTrait,
@@ -222,7 +223,7 @@ where
 }
 
 /// four-quadrant, min and max rise and fall delay
-#[derive(Debug, Copy, Clone, Eq)]
+#[derive(Debug, Copy, Clone, Eq, Serialize, Deserialize)]
 pub struct DelayQuad<D>
 where
     D: DelayTrait,

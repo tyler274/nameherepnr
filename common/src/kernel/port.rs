@@ -5,6 +5,7 @@ use crate::kernel::id_string::IdString;
 use crate::kernel::net::NetInfo;
 use std::hash::Hash;
 use thunderdome::{Arena, Index};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Eq)]
 pub struct PortRef<D>
@@ -66,7 +67,7 @@ where
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq)]
+#[derive(Debug, Copy, Clone, Eq, Deserialize, Serialize)]
 pub enum PortType {
     In = 0,
     Out = 1,

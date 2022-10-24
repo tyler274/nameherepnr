@@ -6,12 +6,13 @@ use super::port::PortInfo;
 use super::region::Region;
 use super::timing::TimingResult;
 use super::{cell::HierarchicalCell, id_string::IdString, property::Property};
-use crate::ice40::arch_defs::{BelId, GroupId, PipId, WireId};
+use crate::ice40::arch_defs::{BelId, GroupId, WireId};
 use core::hash::Hash;
-use ringbuf::StaticRb;
+use smallvec::SmallVec;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use thunderdome::{Arena, Index};
+use thiserror::Error;
 
 pub struct BaseCtx<D: DelayTrait> {
     // Lock to perform mutating actions on the Context.
@@ -27,8 +28,7 @@ pub struct BaseCtx<D: DelayTrait> {
     pub idstring_str_to_id: BTreeMap<String, isize>,
 
     // Temporary string backing store for logging
-    pub log_strs: StaticRb<String, 100>,
-
+    pub log_strs: SmallVec<[String; 100]>,
     // Project settings and config switches
     pub settings: BTreeMap<IdString, Property>,
 
@@ -65,7 +65,7 @@ pub struct BaseCtx<D: DelayTrait> {
     timing_result: TimingResult<D>,
 
     // The Index here has a type of of Context
-    as_context: Option<Index<Context>>,
+    as_context: Option<Box<Context>>,
 
     // Has the frontend loaded a design?
     design_loaded: bool,
@@ -77,12 +77,15 @@ pub struct BaseCtx<D: DelayTrait> {
     pip_ui_reload: BTreeMap<usize, GroupId>,
 }
 
-impl<D> Hash for BaseCtx<D> where D: DelayTrait {
+impl<D> Hash for BaseCtx<D>
+where
+    D: DelayTrait,
+{
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.idstring_idx_to_str.hash(state);
         self.idstring_str_to_id.hash(state);
         self.settings.hash(state);
-        // self.log_strs.hash(state);
+        self.log_strs.hash(state);
         // self.pseudo_cells.hash(state);
         self.nets.hash(state);
         self.cells.hash(state);
@@ -137,11 +140,11 @@ impl<D> BaseCtx<D>
 where
     D: DelayTrait,
 {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             idstring_idx_to_str: Vec::new(),
             idstring_str_to_id: BTreeMap::new(),
-            log_strs: StaticRb::default(),
+            log_strs: SmallVec::new_const(),
             settings: BTreeMap::new(),
             nets: Arena::new(),
             cells: Arena::new(),
@@ -163,9 +166,19 @@ where
             pip_ui_reload: BTreeMap::new(),
         }
     }
+
+    pub fn get_context(&self) -> Result<&Context, BaseCtxError> {
+        Ok(self.as_context.as_ref().ok_or(BaseCtxError::ContextNotInitialized)?.as_ref())
+    }
 }
 
-impl<D> Default for BaseCtx<D>
+#[derive(Error, Debug, Eq, PartialEq, Copy, Clone)]
+pub enum BaseCtxError {
+    #[error("Context is not initialized.")]
+    ContextNotInitialized,
+}
+
+impl<D> const Default for BaseCtx<D>
 where
     D: DelayTrait,
 {

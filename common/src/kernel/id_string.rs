@@ -1,30 +1,26 @@
-use crate::kernel::base_context::BaseCtx;
-use std::hash::Hash;
-
 use super::delay::DelayTrait;
+use crate::kernel::base_context::BaseCtx;
+use core::hash::Hash;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Copy, Clone, Eq)]
-pub struct IdString
-{
+#[derive(Debug, Copy, Clone, Eq, Serialize, Deserialize)]
+pub struct IdString {
     index: u64,
 }
 
-impl const PartialEq for IdString
-{
+impl const PartialEq for IdString {
     fn eq(&self, other: &Self) -> bool {
         self.index == other.index
     }
 }
 
-impl const PartialOrd for IdString
-{
+impl const PartialOrd for IdString {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.index.cmp(&other.index))
     }
 }
 
-impl const Ord for IdString
-{
+impl const Ord for IdString {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.index.cmp(&other.index)
     }
@@ -97,26 +93,23 @@ impl IdString {
     }
 }
 
-impl Default for IdString
-{
+impl const Default for IdString {
     fn default() -> Self {
         Self::new()
     }
 }
 
 /// A wrapper around the tuple so I can implement const traits on it.
-#[derive(Debug, Copy, Clone, Eq)]
+#[derive(Debug, Copy, Clone, Eq, Serialize, Deserialize)]
 pub struct IdPair(IdString, IdString);
 
-impl const PartialEq for IdPair
-{
+impl const PartialEq for IdPair {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1
     }
 }
 
-impl Hash for IdPair
-{
+impl Hash for IdPair {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
         self.1.hash(state);

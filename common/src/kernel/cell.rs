@@ -81,12 +81,7 @@ impl<D: DelayTrait> PseudoCell<D> for RegionPlug {
     }
 
     // TODO: partial reconfiguration region timing
-    fn get_delay(
-        &self,
-        _from_port: IdString,
-        _to_port: IdString,
-        _delay: &DelayQuad<D>,
-    ) -> bool {
+    fn get_delay(&self, _from_port: IdString, _to_port: IdString, _delay: &DelayQuad<D>) -> bool {
         false
     }
 
@@ -113,7 +108,6 @@ where
     //    region: Option<Box<Region>>,
     //    pseudo_cell: Option<std::rc::Rc<CellType>>,
     //    rc_self: Weak<Self>,
-    _marker_d: PhantomData<D>,
 
     // Index to the context within the Context arena.
     context: Option<Index<Context>>,
@@ -124,20 +118,20 @@ where
     pseudo_cell: Option<Index>,
     // Index to this cell in the Arena
     self_index: Option<Index<Self>>,
-    _name: IdString,
-    _cell_type: IdString,
-    _hierarchy_path: IdString,
-    _udata: i32,
+    name: IdString,
+    cell_type: IdString,
+    hierarchy_path: IdString,
+    udata: i32,
 
     ports: BTreeMap<IdString, PortInfo<D>>,
     attributes: BTreeMap<IdString, Property>,
     parameters: BTreeMap<IdString, Property>,
 
     bel: BelId,
-    _bel_strength: PlaceStrength,
+    bel_strength: PlaceStrength,
 
     // cell is part of a cluster if != ClusterId
-    _cluster: ClusterId,
+    cluster: ClusterId,
 }
 
 impl<D> Hash for CellInfo<D>
@@ -150,16 +144,16 @@ where
         self.region.hash(state);
         self.pseudo_cell.hash(state);
         self.self_index.hash(state);
-        self._name.hash(state);
-        self._cell_type.hash(state);
-        self._hierarchy_path.hash(state);
-        self._udata.hash(state);
+        self.name.hash(state);
+        self.cell_type.hash(state);
+        self.hierarchy_path.hash(state);
+        self.udata.hash(state);
         self.ports.hash(state);
         self.attributes.hash(state);
         self.parameters.hash(state);
         self.bel.hash(state);
-        self._bel_strength.hash(state);
-        self._cluster.hash(state);
+        self.bel_strength.hash(state);
+        self.cluster.hash(state);
     }
 }
 
@@ -170,12 +164,20 @@ where
     D: DelayTrait,
 {
     fn eq(&self, other: &Self) -> bool {
-        todo!();
         self.arch_cell_info == other.arch_cell_info
             && self.context == other.context
             && self.region == other.region
             && self.pseudo_cell == other.pseudo_cell
             && self.self_index == other.self_index
+            && self.name == other.name
+            && self.cell_type == other.cell_type
+            && self.hierarchy_path == other.hierarchy_path
+            && self.udata == other.udata
+            && self.ports == other.ports
+            && self.attributes == other.attributes
+            && self.parameters == other.parameters
+            && self.bel == other.bel
+            && self.bel_strength == other.bel_strength
     }
 }
 
@@ -212,19 +214,17 @@ where
             context: None,
             region: None,
             pseudo_cell: None,
-            _name: IdString::new(),
-            _cell_type: IdString::new(),
-            _hierarchy_path: IdString::new(),
-            _udata: 0,
+            name: IdString::new(),
+            cell_type: IdString::new(),
+            hierarchy_path: IdString::new(),
+            udata: 0,
             ports: BTreeMap::new(),
             attributes: BTreeMap::new(),
             parameters: BTreeMap::new(),
             bel: BelId::new(),
-            _bel_strength: PlaceStrength::new(),
-            _cluster: IdString::new(),
+            bel_strength: PlaceStrength::new(),
+            cluster: IdString::new(),
             self_index: None,
-            //            _marker_c: std::marker::PhantomData,
-            _marker_d: std::marker::PhantomData,
         }
     }
     pub fn with_arena(
